@@ -10,6 +10,14 @@ tidy: ## Tidy project
 build: ## Builds project
 	go build ./...
 
+test: ## Run unit tests
+	rm -rf /tmp/peer
+	go test -v
+
+coverage: ## Run code coverage
+	rm -rf /tmp/peer
+	go test -cover	
+
 ## Protoc:
 gen: ## Generates go source files from protobuf.
 	rm -rf blockpb

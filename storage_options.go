@@ -1,8 +1,12 @@
 package blockstorage
 
 import (
+	"errors"
+
 	"github.com/igumus/go-objectstore-lib"
 )
+
+var ErrObjectstoreNotDefined = errors.New("blockstorage: objectstore instance not specified")
 
 // defaultChunkSize handles default size in KB
 const defaultChunkSize = 512 << 10
@@ -19,6 +23,9 @@ type blockstorageConfig struct {
 
 // validate - validates given `blockstorageConfig` instance
 func validate(s *blockstorageConfig) error {
+	if s.ostore == nil {
+		return ErrObjectstoreNotDefined
+	}
 	return nil
 }
 

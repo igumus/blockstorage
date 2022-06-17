@@ -4,6 +4,9 @@ import (
 	"github.com/igumus/go-objectstore-lib"
 )
 
+// defaultChunkSize handles default size in KB
+const defaultChunkSize = 512 << 10
+
 // A BlockStorageOption sets options.
 type BlockStorageOption func(*blockstorageConfig)
 
@@ -11,6 +14,7 @@ type BlockStorageOption func(*blockstorageConfig)
 type blockstorageConfig struct {
 	ostore    objectstore.ObjectStore
 	debugMode bool
+	chunkSize int
 }
 
 // validate - validates given `blockstorageConfig` instance
@@ -23,6 +27,7 @@ func defaultBlockstorageConfig() *blockstorageConfig {
 	return &blockstorageConfig{
 		ostore:    nil,
 		debugMode: false,
+		chunkSize: defaultChunkSize,
 	}
 }
 

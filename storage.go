@@ -13,8 +13,9 @@ type BlockStorage interface {
 }
 
 type storage struct {
-	debug bool
-	store objectstore.ObjectStore
+	debug     bool
+	chunkSize int
+	store     objectstore.ObjectStore
 }
 
 func NewBlockStorage(ctx context.Context, opts ...BlockStorageOption) (BlockStorage, error) {
@@ -27,6 +28,7 @@ func NewBlockStorage(ctx context.Context, opts ...BlockStorageOption) (BlockStor
 
 	ret.store = cfg.ostore
 	ret.debug = cfg.debugMode
+	ret.chunkSize = cfg.chunkSize
 
 	return ret, nil
 }

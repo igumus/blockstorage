@@ -1,0 +1,16 @@
+syntax = "proto3";
+
+package blockpb;
+
+option go_package="/blockpb";
+
+message Link {
+    string Hash = 1;
+    string Name = 2;
+    uint64 Tsize = 3;
+}
+
+message Block {
+    repeated Link Links = 2;
+    bytes Data = 1;
+}

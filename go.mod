@@ -2,7 +2,10 @@ module github.com/igumus/blockstorage
 
 go 1.17
 
-require github.com/igumus/go-objectstore-lib v1.1.2
+require (
+	github.com/igumus/go-objectstore-lib v1.1.2
+	google.golang.org/protobuf v1.28.0
+)
 
 require (
 	github.com/ipfs/go-cid v0.2.0 // indirect

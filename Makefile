@@ -10,6 +10,12 @@ tidy: ## Tidy project
 build: ## Builds project
 	go build ./...
 
+## Protoc:
+gen: ## Generates go source files from protobuf.
+	rm -rf blockpb
+	mkdir blockpb
+	protoc --go_out=blockpb --go_opt=paths=source_relative -I api/protobuf store.proto
+
 ## Help:
 help: ## Show this help.
 	@echo ''

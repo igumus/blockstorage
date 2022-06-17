@@ -14,3 +14,18 @@ message Block {
     repeated Link Links = 2;
     bytes Data = 1;
 }
+
+message WriteBlockRequest {
+    oneof data {
+        string name = 1;
+        bytes chunk_data = 2;
+    }
+}
+
+message WriteBlockResponse {
+    string cid = 1;
+}
+
+service BlockStorageGrpcService {
+    rpc WriteBlock(stream WriteBlockRequest) returns (WriteBlockResponse) {};
+}

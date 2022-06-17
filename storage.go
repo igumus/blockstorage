@@ -4,15 +4,18 @@ import (
 	"context"
 	"log"
 
+	"github.com/igumus/blockstorage/blockpb"
 	"github.com/igumus/go-objectstore-lib"
 )
 
 type BlockStorage interface {
+	blockpb.BlockStorageGrpcServiceServer
 	Start() error
 	Stop() error
 }
 
 type storage struct {
+	blockpb.UnimplementedBlockStorageGrpcServiceServer
 	debug     bool
 	chunkSize int
 	store     objectstore.ObjectStore

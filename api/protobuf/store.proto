@@ -15,6 +15,10 @@ message Block {
     bytes Data = 1;
 }
 
+message GetBlockRequest {
+    string cid= 1;
+}
+
 message WriteBlockRequest {
     oneof data {
         string name = 1;
@@ -28,4 +32,5 @@ message WriteBlockResponse {
 
 service BlockStorageGrpcService {
     rpc WriteBlock(stream WriteBlockRequest) returns (WriteBlockResponse) {};
+    rpc GetBlock(GetBlockRequest) returns (Block) {};
 }

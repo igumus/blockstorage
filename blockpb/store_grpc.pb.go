@@ -19,6 +19,7 @@ const _ = grpc.SupportPackageIsVersion7
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type BlockStorageGrpcServiceClient interface {
 	WriteBlock(ctx context.Context, opts ...grpc.CallOption) (BlockStorageGrpcService_WriteBlockClient, error)
+	GetBlock(ctx context.Context, in *GetBlockRequest, opts ...grpc.CallOption) (*Block, error)
 }
 
 type blockStorageGrpcServiceClient struct {
@@ -63,11 +64,21 @@ func (x *blockStorageGrpcServiceWriteBlockClient) CloseAndRecv() (*WriteBlockRes
 	return m, nil
 }
 
+func (c *blockStorageGrpcServiceClient) GetBlock(ctx context.Context, in *GetBlockRequest, opts ...grpc.CallOption) (*Block, error) {
+	out := new(Block)
+	err := c.cc.Invoke(ctx, "/blockpb.BlockStorageGrpcService/GetBlock", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // BlockStorageGrpcServiceServer is the server API for BlockStorageGrpcService service.
 // All implementations must embed UnimplementedBlockStorageGrpcServiceServer
 // for forward compatibility
 type BlockStorageGrpcServiceServer interface {
 	WriteBlock(BlockStorageGrpcService_WriteBlockServer) error
+	GetBlock(context.Context, *GetBlockRequest) (*Block, error)
 	mustEmbedUnimplementedBlockStorageGrpcServiceServer()
 }
 
@@ -77,6 +88,9 @@ type UnimplementedBlockStorageGrpcServiceServer struct {
 
 func (UnimplementedBlockStorageGrpcServiceServer) WriteBlock(BlockStorageGrpcService_WriteBlockServer) error {
 	return status.Errorf(codes.Unimplemented, "method WriteBlock not implemented")
+}
+func (UnimplementedBlockStorageGrpcServiceServer) GetBlock(context.Context, *GetBlockRequest) (*Block, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetBlock not implemented")
 }
 func (UnimplementedBlockStorageGrpcServiceServer) mustEmbedUnimplementedBlockStorageGrpcServiceServer() {
 }
@@ -118,13 +132,36 @@ func (x *blockStorageGrpcServiceWriteBlockServer) Recv() (*WriteBlockRequest, er
 	return m, nil
 }
 
+func _BlockStorageGrpcService_GetBlock_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetBlockRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(BlockStorageGrpcServiceServer).GetBlock(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/blockpb.BlockStorageGrpcService/GetBlock",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(BlockStorageGrpcServiceServer).GetBlock(ctx, req.(*GetBlockRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // BlockStorageGrpcService_ServiceDesc is the grpc.ServiceDesc for BlockStorageGrpcService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
 var BlockStorageGrpcService_ServiceDesc = grpc.ServiceDesc{
 	ServiceName: "blockpb.BlockStorageGrpcService",
 	HandlerType: (*BlockStorageGrpcServiceServer)(nil),
-	Methods:     []grpc.MethodDesc{},
+	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "GetBlock",
+			Handler:    _BlockStorageGrpcService_GetBlock_Handler,
+		},
+	},
 	Streams: []grpc.StreamDesc{
 		{
 			StreamName:    "WriteBlock",

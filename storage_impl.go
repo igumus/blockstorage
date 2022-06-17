@@ -7,8 +7,22 @@ import (
 	"log"
 
 	"github.com/igumus/blockstorage/blockpb"
+	"github.com/ipfs/go-cid"
 	"google.golang.org/protobuf/proto"
 )
+
+func (s *storage) getBlock(ctx context.Context, cid cid.Cid) (*blockpb.Block, error) {
+	data, err := s.store.ReadObject(ctx, cid)
+	if err != nil {
+		return nil, err
+	}
+
+	var block blockpb.Block
+	if err := proto.Unmarshal(data, &block); err != nil {
+		return nil, err
+	}
+	return &block, nil
+}
 
 // persistBlock - persists given block instance to underlying objectstore. Successful persistence
 // returns link to persisted block. Otherwise returns nil and error

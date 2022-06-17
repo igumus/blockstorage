@@ -1,13 +1,25 @@
 package blockstorage
 
 import (
+	"context"
 	"io"
 	"log"
 
 	"github.com/igumus/blockstorage/blockpb"
+	"github.com/ipfs/go-cid"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
+
+func (s *storage) GetBlock(ctx context.Context, req *blockpb.GetBlockRequest) (*blockpb.Block, error) {
+	digest := req.GetCid()
+	cid, decodeErr := cid.Decode(digest)
+	if decodeErr != nil {
+		return nil, status.Error(codes.InvalidArgument, "cid is not valid")
+	}
+
+	return s.getBlock(ctx, cid)
+}
 
 func (s *storage) WriteBlock(stream blockpb.BlockStorageGrpcService_WriteBlockServer) error {
 	ctx := stream.Context()

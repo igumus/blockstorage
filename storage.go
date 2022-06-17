@@ -10,6 +10,7 @@ type BlockStorage interface {
 }
 
 type storage struct {
+	debug bool
 	store objectstore.ObjectStore
 }
 
@@ -22,6 +23,7 @@ func NewBlockStorage(ctx context.Context, opts ...BlockStorageOption) (BlockStor
 	}
 
 	ret.store = cfg.ostore
+	ret.debug = cfg.debugMode
 
 	return ret, nil
 }

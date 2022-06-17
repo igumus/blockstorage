@@ -9,7 +9,8 @@ type BlockStorageOption func(*blockstorageConfig)
 
 // Captures/Represents BlockStorage's configuration information.
 type blockstorageConfig struct {
-	ostore objectstore.ObjectStore
+	ostore    objectstore.ObjectStore
+	debugMode bool
 }
 
 // validate - validates given `blockstorageConfig` instance
@@ -20,7 +21,8 @@ func validate(s *blockstorageConfig) error {
 // defaultBlockstorageConfig - returns instance of `blockstorageConfig` with initial values.
 func defaultBlockstorageConfig() *blockstorageConfig {
 	return &blockstorageConfig{
-		ostore: nil,
+		ostore:    nil,
+		debugMode: false,
 	}
 }
 
@@ -39,5 +41,12 @@ func createConfig(opts ...BlockStorageOption) (*blockstorageConfig, error) {
 func WithObjectStore(s objectstore.ObjectStore) BlockStorageOption {
 	return func(bc *blockstorageConfig) {
 		bc.ostore = s
+	}
+}
+
+// EnableDebugMode returns a BlockStorageOption that enabled debug mode for BlockStorage service
+func EnableDebugMode() BlockStorageOption {
+	return func(bc *blockstorageConfig) {
+		bc.debugMode = true
 	}
 }

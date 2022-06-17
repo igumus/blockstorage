@@ -1,0 +1,21 @@
+.idea/
+.intellij/
+*.iml
+.vscode/
+.DS_Store
+out
+
+# Binaries, plugins, libs
+*.dll
+*.dylib
+*.exe
+*.exe~
+*.so
+
+# Testing
+*.test
+*.tmp
+
+### Go Patch ###
+/vendor/
+/Godeps/

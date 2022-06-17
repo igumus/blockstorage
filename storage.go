@@ -2,11 +2,14 @@ package blockstorage
 
 import (
 	"context"
+	"log"
 
 	"github.com/igumus/go-objectstore-lib"
 )
 
 type BlockStorage interface {
+	Start() error
+	Stop() error
 }
 
 type storage struct {
@@ -26,4 +29,14 @@ func NewBlockStorage(ctx context.Context, opts ...BlockStorageOption) (BlockStor
 	ret.debug = cfg.debugMode
 
 	return ret, nil
+}
+
+func (s *storage) Start() error {
+	log.Println("info: blockstorage service started")
+	return nil
+}
+
+func (s *storage) Stop() error {
+	log.Println("info: blockstorage service stopped")
+	return nil
 }

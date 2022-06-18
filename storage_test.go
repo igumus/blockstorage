@@ -37,6 +37,7 @@ func generateRandomByteReader(size int) io.Reader {
 func TestBlockStorageInstanceCreation(t *testing.T) {
 	_, storageErr := blockstorage.NewBlockStorage(context.Background())
 	require.NotNil(t, storageErr)
+	require.Equal(t, storageErr, blockstorage.ErrObjectstoreNotDefined)
 }
 
 func TestBlockCreation(t *testing.T) {
@@ -52,48 +53,56 @@ func TestBlockCreation(t *testing.T) {
 		data          io.Reader
 		shouldFail    bool
 		blockLinkSize int
+		err           error
 	}{
 		{
 			name:          "valid_input",
 			data:          generateRandomByteReader(3),
 			blockLinkSize: 1,
 			shouldFail:    false,
+			err:           nil,
 		},
 		{
 			name:          "equal_to_chunk_size",
 			data:          generateRandomByteReader(512 << 10),
 			blockLinkSize: 1,
 			shouldFail:    false,
+			err:           nil,
 		},
 		{
 			name:          "double_chunk_size",
 			data:          generateRandomByteReader(1024 << 10),
 			blockLinkSize: 2,
 			shouldFail:    false,
+			err:           nil,
 		},
 		{
 			name:          " spaced_name ",
 			data:          generateRandomByteReader(3),
 			blockLinkSize: 1,
 			shouldFail:    false,
+			err:           nil,
 		},
 		{
 			name:          "empty_data",
 			data:          generateRandomByteReader(0),
 			blockLinkSize: 0,
 			shouldFail:    true,
+			err:           blockstorage.ErrBlockDataEmpty,
 		},
 		{
 			name:          "",
 			data:          generateRandomByteReader(3),
 			blockLinkSize: 1,
 			shouldFail:    true,
+			err:           blockstorage.ErrBlockNameEmpty,
 		},
 		{
 			name:          " ",
 			data:          generateRandomByteReader(3),
 			blockLinkSize: 0,
 			shouldFail:    true,
+			err:           blockstorage.ErrBlockNameEmpty,
 		},
 	}
 
@@ -106,6 +115,7 @@ func TestBlockCreation(t *testing.T) {
 			digest, createErr := storage.CreateBlock(ctx, tc.name, tc.data)
 			if tc.shouldFail {
 				require.NotNil(t, createErr)
+				require.Equal(t, createErr, tc.err)
 			} else {
 				require.Nil(t, createErr)
 				rootCid, decodeErr := cid.Decode(digest)

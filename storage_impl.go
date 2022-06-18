@@ -3,15 +3,17 @@ package blockstorage
 import (
 	"bytes"
 	"context"
+	"errors"
 	"io"
 	"log"
+	"strings"
 
 	"github.com/igumus/blockstorage/blockpb"
 	"github.com/ipfs/go-cid"
 	"google.golang.org/protobuf/proto"
 )
 
-func (s *storage) getBlock(ctx context.Context, cid cid.Cid) (*blockpb.Block, error) {
+func (s *storage) GetBlock(ctx context.Context, cid cid.Cid) (*blockpb.Block, error) {
 	data, err := s.store.ReadObject(ctx, cid)
 	if err != nil {
 		return nil, err
@@ -61,9 +63,14 @@ func (s *storage) persistBlockWithLinks(ctx context.Context, links ...*blockpb.L
 	return s.persistBlock(ctx, block)
 }
 
-// createBlock - creates block with given `name` in underlying objectstore. Reads `chunkSize` (default: 512KB) of data
+// CreateBlock - creates block with given `name` in underlying objectstore. Reads `chunkSize` (default: 512KB) of data
 // from reader and constructs a DAG (directed acyclic graph).
-func (s *storage) createBlock(ctx context.Context, name string, reader io.Reader) (string, error) {
+func (s *storage) CreateBlock(ctx context.Context, fname string, reader io.Reader) (string, error) {
+	name := strings.TrimSpace(fname)
+	if name == "" {
+		return "", errors.New("name should not be empty")
+	}
+
 	links := make([]*blockpb.Link, 0)
 	totalSize := uint64(0)
 	var buf []byte
@@ -103,6 +110,10 @@ func (s *storage) createBlock(ctx context.Context, name string, reader io.Reader
 			log.Println("read 0 bytes")
 		}
 
+	}
+
+	if len(links) < 1 {
+		return "", errors.New("hata var")
 	}
 
 	internalLink, internalLinkErr := s.persistBlockWithLinks(ctx, links...)

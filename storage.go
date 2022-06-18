@@ -2,20 +2,21 @@ package blockstorage
 
 import (
 	"context"
+	"io"
 	"log"
 
 	"github.com/igumus/blockstorage/blockpb"
 	"github.com/igumus/go-objectstore-lib"
+	"github.com/ipfs/go-cid"
 )
 
 type BlockStorage interface {
-	blockpb.BlockStorageGrpcServiceServer
-	Start() error
+	CreateBlock(context.Context, string, io.Reader) (string, error)
+	GetBlock(context.Context, cid.Cid) (*blockpb.Block, error)
 	Stop() error
 }
 
 type storage struct {
-	blockpb.UnimplementedBlockStorageGrpcServiceServer
 	debug     bool
 	chunkSize int
 	store     objectstore.ObjectStore
@@ -32,13 +33,9 @@ func NewBlockStorage(ctx context.Context, opts ...BlockStorageOption) (BlockStor
 	ret.store = cfg.ostore
 	ret.debug = cfg.debugMode
 	ret.chunkSize = cfg.chunkSize
+	ret.registerGrpc(cfg.grpcServer)
 
 	return ret, nil
-}
-
-func (s *storage) Start() error {
-	log.Println("info: blockstorage service started")
-	return nil
 }
 
 func (s *storage) Stop() error {

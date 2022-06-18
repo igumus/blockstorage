@@ -4,6 +4,7 @@ import (
 	"errors"
 
 	"github.com/igumus/go-objectstore-lib"
+	"google.golang.org/grpc"
 )
 
 var ErrObjectstoreNotDefined = errors.New("blockstorage: objectstore instance not specified")
@@ -16,9 +17,10 @@ type BlockStorageOption func(*blockstorageConfig)
 
 // Captures/Represents BlockStorage's configuration information.
 type blockstorageConfig struct {
-	ostore    objectstore.ObjectStore
-	debugMode bool
-	chunkSize int
+	ostore     objectstore.ObjectStore
+	grpcServer *grpc.Server
+	debugMode  bool
+	chunkSize  int
 }
 
 // validate - validates given `blockstorageConfig` instance
@@ -60,5 +62,12 @@ func WithObjectStore(s objectstore.ObjectStore) BlockStorageOption {
 func EnableDebugMode() BlockStorageOption {
 	return func(bc *blockstorageConfig) {
 		bc.debugMode = true
+	}
+}
+
+// EnableGrpcEndpoint returns a BlockStorageOption that enables grpc endpoint of blockstorage
+func EnableGrpcEndpoint(s *grpc.Server) BlockStorageOption {
+	return func(bc *blockstorageConfig) {
+		bc.grpcServer = s
 	}
 }

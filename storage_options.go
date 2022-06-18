@@ -2,6 +2,8 @@ package blockstorage
 
 import (
 	"github.com/igumus/go-objectstore-lib"
+	"github.com/libp2p/go-libp2p-core/host"
+	"github.com/libp2p/go-libp2p-core/routing"
 	"google.golang.org/grpc"
 )
 
@@ -13,10 +15,12 @@ type BlockStorageOption func(*blockstorageConfig)
 
 // Captures/Represents BlockStorage's configuration information.
 type blockstorageConfig struct {
-	ostore     objectstore.ObjectStore
-	grpcServer *grpc.Server
-	debugMode  bool
-	chunkSize  int
+	ostore            objectstore.ObjectStore
+	grpcServer        *grpc.Server
+	peerHost          host.Host
+	peerContentRouter routing.ContentRouting
+	debugMode         bool
+	chunkSize         int
 }
 
 // validate - validates given `blockstorageConfig` instance
@@ -51,6 +55,14 @@ func createConfig(opts ...BlockStorageOption) (*blockstorageConfig, error) {
 func WithObjectStore(s objectstore.ObjectStore) BlockStorageOption {
 	return func(bc *blockstorageConfig) {
 		bc.ostore = s
+	}
+}
+
+// WithPeer returns a BlockStorageOption that specifies peer host and peer content router to satify p2p capabilities
+func WithPeer(h host.Host, r routing.ContentRouting) BlockStorageOption {
+	return func(bc *blockstorageConfig) {
+		bc.peerHost = h
+		bc.peerContentRouter = r
 	}
 }
 

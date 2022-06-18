@@ -14,7 +14,14 @@ import (
 
 // GetBlock - reads block with given cid (aka content identifier) from underlying object store
 func (s *storage) GetBlock(ctx context.Context, cid cid.Cid) (*blockpb.Block, error) {
-	data, err := s.store.ReadObject(ctx, cid)
+	var data []byte
+	var err error
+
+	if s.store.HasObject(ctx, cid) {
+		data, err = s.store.ReadObject(ctx, cid)
+	} else {
+		data, err = s.getRemoteBlock(ctx, cid)
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -26,8 +33,9 @@ func (s *storage) GetBlock(ctx context.Context, cid cid.Cid) (*blockpb.Block, er
 	return &block, nil
 }
 
-// persistBlock - persists given block instance to underlying objectstore. Successful persistence
-// returns link to persisted block. Otherwise returns nil and error
+// persistBlock - persists given block instance to underlying objectstore.
+// When persistence success, try to announce block ownership to the network and returns link to persisted block.
+// Unsuccessful persistence returns cause error
 func (s *storage) persistBlock(ctx context.Context, block *blockpb.Block) (*blockpb.Link, error) {
 	blockBin, blockErr := proto.Marshal(block)
 	if blockErr != nil {
@@ -42,6 +50,9 @@ func (s *storage) persistBlock(ctx context.Context, block *blockpb.Block) (*bloc
 	if s.debug {
 		log.Printf("debug: wrote block with digest: %s, %d\n", digest.String(), len(block.Data))
 	}
+
+	s.announceBlockOwnership(ctx, digest)
+
 	return &blockpb.Link{
 		Hash:  digest.String(),
 		Tsize: uint64(len(block.Data)),
@@ -83,33 +94,17 @@ func (s *storage) CreateBlock(ctx context.Context, fname string, reader io.Reade
 		if err != nil {
 			if err != io.EOF {
 				return "", err
-			} else {
-				if n > 0 {
-					log.Println("dosya bitti kalan byte'lari yaziyorum")
-					link, linkErr := s.persistBlockWithData(ctx, buf[:])
-					if linkErr != nil {
-						return "", linkErr
-					}
-
-					links = append(links, link)
-					totalSize += uint64(n)
-				}
-				break
 			}
+			break
 		}
 
-		if n > 0 {
-			link, linkErr := s.persistBlockWithData(ctx, buf[:n])
-			if linkErr != nil {
-				return "", linkErr
-			}
-
-			links = append(links, link)
-			totalSize += uint64(n)
-		} else {
-			log.Println("read 0 bytes")
+		link, linkErr := s.persistBlockWithData(ctx, buf[:n])
+		if linkErr != nil {
+			return "", linkErr
 		}
 
+		links = append(links, link)
+		totalSize += uint64(n)
 	}
 
 	if len(links) < 1 {

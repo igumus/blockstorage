@@ -3,7 +3,6 @@ package blockstorage
 import (
 	"bytes"
 	"context"
-	"errors"
 	"io"
 	"log"
 	"strings"
@@ -13,6 +12,7 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
+// GetBlock - reads block with given cid (aka content identifier) from underlying object store
 func (s *storage) GetBlock(ctx context.Context, cid cid.Cid) (*blockpb.Block, error) {
 	data, err := s.store.ReadObject(ctx, cid)
 	if err != nil {
@@ -68,7 +68,7 @@ func (s *storage) persistBlockWithLinks(ctx context.Context, links ...*blockpb.L
 func (s *storage) CreateBlock(ctx context.Context, fname string, reader io.Reader) (string, error) {
 	name := strings.TrimSpace(fname)
 	if name == "" {
-		return "", errors.New("name should not be empty")
+		return "", ErrBlockNameEmpty
 	}
 
 	links := make([]*blockpb.Link, 0)
@@ -113,7 +113,7 @@ func (s *storage) CreateBlock(ctx context.Context, fname string, reader io.Reade
 	}
 
 	if len(links) < 1 {
-		return "", errors.New("hata var")
+		return "", ErrBlockDataEmpty
 	}
 
 	internalLink, internalLinkErr := s.persistBlockWithLinks(ctx, links...)

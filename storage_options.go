@@ -1,13 +1,9 @@
 package blockstorage
 
 import (
-	"errors"
-
 	"github.com/igumus/go-objectstore-lib"
 	"google.golang.org/grpc"
 )
-
-var ErrObjectstoreNotDefined = errors.New("blockstorage: objectstore instance not specified")
 
 // defaultChunkSize handles default size in KB
 const defaultChunkSize = 512 << 10

@@ -174,10 +174,14 @@ func TestGrpcContextCancellationAfterStreaming(t *testing.T) {
 
 	sendErr = stream.Send(&blockpb.WriteBlockRequest{
 		Data: &blockpb.WriteBlockRequest_ChunkData{
-			ChunkData: ([]byte("selam"))[:],
+			ChunkData: []byte("selam"),
 		},
 	})
-	require.Nil(t, sendErr)
+	if sendErr != nil {
+		log.Println("testDebug: EOF error occurred")
+		require.Equal(t, io.EOF, sendErr)
+	}
+
 	resp, err := stream.CloseAndRecv()
 	require.Error(t, err)
 	require.Nil(t, resp)

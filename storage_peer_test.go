@@ -217,7 +217,7 @@ func TestOneNetworkPeerContextHandling(t *testing.T) {
 
 	cancel()
 	_, err = p1s.findBlockProvider(ctx, cid)
-	require.Equal(t, ErrFindBlockProviderCancelled, err)
+	require.Equal(t, ErrBlockOperationCancelled, err)
 
 }
 

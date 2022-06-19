@@ -27,11 +27,19 @@ type storageGrpc struct {
 	storage BlockStorage
 }
 
+func (s *storageGrpc) rpcError(code codes.Code, err error) error {
+	return status.Error(code, err.Error())
+}
+
 func (s *storageGrpc) GetBlock(ctx context.Context, req *blockpb.GetBlockRequest) (*blockpb.Block, error) {
+	ctxErr := s.storage.checkContext(ctx)
+	if ctxErr != nil {
+		return nil, s.rpcError(codes.Aborted, ctxErr)
+	}
 	digest := req.GetCid()
 	cid, decodeErr := cid.Decode(digest)
 	if decodeErr != nil {
-		return nil, status.Error(codes.InvalidArgument, "cid is not valid")
+		return nil, s.rpcError(codes.InvalidArgument, ErrBlockIdentifierNotValid)
 	}
 
 	return s.storage.GetBlock(ctx, cid)
@@ -39,9 +47,9 @@ func (s *storageGrpc) GetBlock(ctx context.Context, req *blockpb.GetBlockRequest
 
 func (s *storageGrpc) WriteBlock(stream blockpb.BlockStorageGrpcService_WriteBlockServer) error {
 	ctx := stream.Context()
-	if ctx.Err() != nil {
-		log.Printf("err: context failed: %s\n", ctx.Err().Error())
-		return status.Error(codes.Canceled, "cancelled via context")
+	ctxErr := s.storage.checkContext(ctx)
+	if ctxErr != nil {
+		return s.rpcError(codes.Aborted, ctxErr)
 	}
 	request, requestErr := stream.Recv()
 	if requestErr != nil {
@@ -59,9 +67,9 @@ func (s *storageGrpc) WriteBlock(stream blockpb.BlockStorageGrpcService_WriteBlo
 	go func() {
 		var retErr error = nil
 		for {
-			if ctx.Err() != nil {
-				retErr = ctx.Err()
-				break
+			ctxErr := s.storage.checkContext(ctx)
+			if ctxErr != nil {
+				retErr = ctxErr
 			}
 			req, err := stream.Recv()
 			if err == io.EOF {
@@ -89,7 +97,7 @@ func (s *storageGrpc) WriteBlock(stream blockpb.BlockStorageGrpcService_WriteBlo
 	digest, err := s.storage.CreateBlock(ctx, fileName, pr)
 	if err != nil {
 		log.Printf("err: writing block failed: %s, %s\n", fileName, err.Error())
-		return status.Error(codes.Internal, "writing block failed")
+		return s.rpcError(codes.Internal, err)
 	}
 
 	return stream.SendAndClose(&blockpb.WriteBlockResponse{

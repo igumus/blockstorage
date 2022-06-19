@@ -28,8 +28,10 @@ const BlockReadProtocol = protocol.ID("/blockstorage/block/read/1.0.0")
 
 // blockReadStreamHandler - block protocol's read stream handler
 func (s *storage) blockReadStreamHandler(stream network.Stream) {
-	log.Println("debug: TBD")
-	log.Println("stream opended")
+	if s.debug {
+		log.Println("debug: block read stream opened")
+	}
+
 	reader := bufio.NewReader(stream)
 	_, cid, err := cid.CidFromReader(reader)
 	if err != nil {
@@ -37,7 +39,9 @@ func (s *storage) blockReadStreamHandler(stream network.Stream) {
 		stream.Reset()
 	}
 
-	log.Printf("info: incoming cid is : %s\n", cid)
+	if s.debug {
+		log.Printf("debug: incoming cid is : %s\n", cid)
+	}
 	data, err := s.store.ReadObject(context.Background(), cid)
 	if err != nil {
 		log.Printf("err: reading block object failed in stream: %s, %s\n", cid, err.Error())
@@ -82,6 +86,14 @@ func (s *storage) announceBlockOwnership(ctx context.Context, cid cid.Cid) bool 
 // If found any provider, returns address information of that peer(s).
 // Otherwise returns `ErrBlockProviderNotFound` error.
 func (s *storage) findBlockProvider(ctx context.Context, cid cid.Cid) ([]peer.AddrInfo, error) {
+	if ctx.Err() != nil {
+		switch ctx.Err() {
+		case context.Canceled:
+			return nil, ErrFindBlockProviderCancelled
+		default:
+			return nil, ErrFindBlockProviderTimedOut
+		}
+	}
 	log.Printf("info: asking object owner to network: %s\n", cid)
 	peerCapacity := 3
 	chProviders := s.crouter.FindProvidersAsync(ctx, cid, peerCapacity)

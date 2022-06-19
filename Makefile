@@ -7,15 +7,16 @@ all: help
 tidy: ## Tidy project
 	go mod tidy -compat=1.17
 
-build: ## Builds project
+clean: ## Cleans temporary folder
+	rm -rf /tmp/peer*
+
+build: clean tidy ## Builds project
 	go build ./...
 
-test: ## Run unit tests
-	rm -rf /tmp/peer
+test: clean tidy ## Run unit tests
 	go test -v
 
-coverage: ## Run code coverage
-	rm -rf /tmp/peer
+coverage: clean tidy ## Run code coverage
 	go test -cover	
 
 ## Protoc:

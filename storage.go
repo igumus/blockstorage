@@ -24,11 +24,11 @@ type BlockStorage interface {
 }
 
 type storage struct {
-	debug     bool
-	chunkSize int
-	store     objectstore.ObjectStore
-	host      host.Host
-	crouter   routing.ContentRouting
+	debug      bool
+	chunkSize  int
+	localStore objectstore.ObjectStore
+	host       host.Host
+	crouter    routing.ContentRouting
 }
 
 func NewBlockStorage(ctx context.Context, opts ...BlockStorageOption) (BlockStorage, error) {
@@ -39,7 +39,7 @@ func NewBlockStorage(ctx context.Context, opts ...BlockStorageOption) (BlockStor
 		return ret, cfgErr
 	}
 
-	ret.store = cfg.ostore
+	ret.localStore = cfg.ostore
 	ret.debug = cfg.debugMode
 	ret.chunkSize = cfg.chunkSize
 	ret.host = cfg.peerHost

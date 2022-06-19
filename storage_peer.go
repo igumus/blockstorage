@@ -42,7 +42,7 @@ func (s *storage) blockReadStreamHandler(stream network.Stream) {
 	if s.debug {
 		log.Printf("debug: incoming cid is : %s\n", cid)
 	}
-	data, err := s.store.ReadObject(context.Background(), cid)
+	data, err := s.localStore.ReadObject(context.Background(), cid)
 	if err != nil {
 		log.Printf("err: reading block object failed in stream: %s, %s\n", cid, err.Error())
 		stream.Reset()

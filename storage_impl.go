@@ -17,8 +17,8 @@ func (s *storage) GetBlock(ctx context.Context, cid cid.Cid) (*blockpb.Block, er
 	var data []byte
 	var err error
 
-	if s.store.HasObject(ctx, cid) {
-		data, err = s.store.ReadObject(ctx, cid)
+	if s.localStore.HasObject(ctx, cid) {
+		data, err = s.localStore.ReadObject(ctx, cid)
 	} else {
 		data, err = s.getRemoteBlock(ctx, cid)
 	}
@@ -42,7 +42,7 @@ func (s *storage) persistBlock(ctx context.Context, block *blockpb.Block) (*bloc
 		return nil, blockErr
 	}
 
-	digest, persistErr := s.store.CreateObject(ctx, bytes.NewReader(blockBin))
+	digest, persistErr := s.localStore.CreateObject(ctx, bytes.NewReader(blockBin))
 	if persistErr != nil {
 		return nil, persistErr
 	}

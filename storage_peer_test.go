@@ -183,11 +183,11 @@ func makeStoragePeer(ctx context.Context, seq int, bsid string) (*storage, host.
 	}
 
 	storage := &storage{
-		debug:     true,
-		chunkSize: defaultChunkSize,
-		store:     store,
-		host:      h,
-		crouter:   d,
+		debug:      true,
+		chunkSize:  defaultChunkSize,
+		localStore: store,
+		host:       h,
+		crouter:    d,
 	}
 
 	storage.registerPeerProtocol()
@@ -242,7 +242,7 @@ func TestOneNetworkPeerNotExistsBlock(t *testing.T) {
 	cid, err := cid.Decode(notExistsCid)
 	require.Nil(t, err)
 
-	require.Equal(t, false, p1s.store.HasObject(ctx, cid))
+	require.Equal(t, false, p1s.localStore.HasObject(ctx, cid))
 
 	_, err = p1s.findBlockProvider(ctx, cid)
 	require.Equal(t, ErrBlockProviderNotFound, err)
@@ -290,7 +290,7 @@ func TestOneNetworkPeerBlockCreation(t *testing.T) {
 	cid, decodeErr := cid.Decode(digest)
 	require.Nil(t, decodeErr)
 
-	require.True(t, p1s.store.HasObject(ctx, cid))
+	require.True(t, p1s.localStore.HasObject(ctx, cid))
 
 	providers, err := p1s.findBlockProvider(ctx, cid)
 	require.Nil(t, err)
@@ -344,7 +344,7 @@ func TestTwoNetworkPeersBlockFetching(t *testing.T) {
 	cid, decodeErr := cid.Decode(digest)
 	require.Nil(t, decodeErr)
 
-	require.True(t, p1s.store.HasObject(ctx, cid))
+	require.True(t, p1s.localStore.HasObject(ctx, cid))
 
 	providers, err := p1s.findBlockProvider(ctx, cid)
 	require.Nil(t, err)
@@ -361,7 +361,7 @@ func TestTwoNetworkPeersBlockFetching(t *testing.T) {
 	require.Equal(t, fileName, link.Name)
 	require.Equal(t, uint64(totalSize), link.Tsize)
 
-	require.False(t, p2s.store.HasObject(ctx, cid))
+	require.False(t, p2s.localStore.HasObject(ctx, cid))
 	remoteBlock, remoteErr := p2s.GetBlock(ctx, cid)
 	require.Nil(t, remoteErr)
 

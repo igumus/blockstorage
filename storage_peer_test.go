@@ -177,15 +177,20 @@ func makeStoragePeer(ctx context.Context, seq int, bsid string) (*storage, host.
 	}
 
 	bucket := fmt.Sprintf("peer%d", seq)
+	bucketTmp := fmt.Sprintf("peer%d-temp", seq)
 	store, storeErr := fsstore.NewFileSystemObjectStore(fsstore.WithDataDir("/tmp"), fsstore.WithBucket(bucket))
 	if storeErr != nil {
 		return nil, nil, nil, storeErr
 	}
-
+	tStore, tStoreErr := fsstore.NewFileSystemObjectStore(fsstore.WithDataDir("/tmp"), fsstore.WithBucket(bucketTmp))
+	if tStoreErr != nil {
+		return nil, nil, nil, tStoreErr
+	}
 	storage := &storage{
 		debug:      true,
 		chunkSize:  defaultChunkSize,
 		localStore: store,
+		tempStore:  tStore,
 		host:       h,
 		crouter:    d,
 	}
@@ -345,6 +350,7 @@ func TestTwoNetworkPeersBlockFetching(t *testing.T) {
 	require.Nil(t, decodeErr)
 
 	require.True(t, p1s.localStore.HasObject(ctx, cid))
+	require.False(t, p1s.tempStore.HasObject(ctx, cid))
 
 	providers, err := p1s.findBlockProvider(ctx, cid)
 	require.Nil(t, err)
@@ -364,6 +370,7 @@ func TestTwoNetworkPeersBlockFetching(t *testing.T) {
 	require.False(t, p2s.localStore.HasObject(ctx, cid))
 	remoteBlock, remoteErr := p2s.GetBlock(ctx, cid)
 	require.Nil(t, remoteErr)
+	require.True(t, p2s.tempStore.HasObject(ctx, cid))
 
 	require.Nil(t, remoteBlock.Data)
 	require.Equal(t, len(block.Links), len(remoteBlock.Links))

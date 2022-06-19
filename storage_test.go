@@ -37,14 +37,16 @@ func generateRandomByteReader(size int) io.Reader {
 func TestBlockStorageInstanceCreation(t *testing.T) {
 	_, storageErr := blockstorage.NewBlockStorage(context.Background())
 	require.NotNil(t, storageErr)
-	require.Equal(t, storageErr, blockstorage.ErrObjectstoreNotDefined)
+	require.Equal(t, storageErr, blockstorage.ErrLocalObjectStoreNotDefined)
 }
 
 func TestBlockCreation(t *testing.T) {
 	store, storeErr := fsstore.NewFileSystemObjectStore(fsstore.WithDataDir(dataDir), fsstore.WithBucket(dataBucket))
 	require.NoError(t, storeErr)
+	tempStore, tempStoreErr := fsstore.NewFileSystemObjectStore(fsstore.WithDataDir(dataDir), fsstore.WithBucket(dataBucket+"-temp"))
+	require.NoError(t, tempStoreErr)
 
-	storage, storageErr := blockstorage.NewBlockStorage(context.Background(), blockstorage.WithObjectStore(store))
+	storage, storageErr := blockstorage.NewBlockStorage(context.Background(), blockstorage.WithLocalStore(store), blockstorage.WithTempStore(tempStore))
 	require.NoError(t, storageErr)
 	t.Parallel()
 

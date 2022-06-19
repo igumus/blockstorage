@@ -19,6 +19,8 @@ func (s *storage) GetBlock(ctx context.Context, cid cid.Cid) (*blockpb.Block, er
 
 	if s.localStore.HasObject(ctx, cid) {
 		data, err = s.localStore.ReadObject(ctx, cid)
+	} else if s.tempStore.HasObject(ctx, cid) {
+		data, err = s.tempStore.ReadObject(ctx, cid)
 	} else {
 		data, err = s.getRemoteBlock(ctx, cid)
 	}

@@ -25,7 +25,8 @@ func init() {
 	lis = bufconn.Listen(bufSize)
 	s := grpc.NewServer()
 	store, _ := fsstore.NewFileSystemObjectStore(fsstore.WithDataDir(dataDir), fsstore.WithBucket(dataBucket))
-	blockstorage.NewBlockStorage(context.Background(), blockstorage.WithObjectStore(store), blockstorage.EnableGrpcEndpoint(s))
+	tstore, _ := fsstore.NewFileSystemObjectStore(fsstore.WithDataDir(dataDir), fsstore.WithBucket(dataBucket+"-temp"))
+	blockstorage.NewBlockStorage(context.Background(), blockstorage.WithLocalStore(store), blockstorage.EnableGrpcEndpoint(s), blockstorage.WithTempStore(tstore))
 	go func() {
 		if err := s.Serve(lis); err != nil {
 			log.Fatalf("Server exited with error: %v", err)

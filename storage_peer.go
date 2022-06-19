@@ -2,6 +2,7 @@ package blockstorage
 
 import (
 	"bufio"
+	"bytes"
 	"context"
 	"io/ioutil"
 	"log"
@@ -144,7 +145,19 @@ func (s *storage) getRemoteBlock(ctx context.Context, cid cid.Cid) ([]byte, erro
 	if err != nil {
 		return nil, err
 	}
-
 	provider := providers[0]
-	return s.fetchRemoteBlock(ctx, cid, provider)
+
+	data, err := s.fetchRemoteBlock(ctx, cid, provider)
+	if err != nil {
+		return nil, err
+	}
+
+	newCid, createErr := s.tempStore.CreateObject(ctx, bytes.NewReader(data))
+	if createErr != nil {
+		log.Printf("err: storing remote block to temp store failed: %s, %s\n", cid, createErr.Error())
+	} else {
+		log.Printf("info: requested block:%s, received block: %s\n", cid, newCid)
+	}
+
+	return data, nil
 }

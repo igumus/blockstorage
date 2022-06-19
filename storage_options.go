@@ -15,7 +15,8 @@ type BlockStorageOption func(*blockstorageConfig)
 
 // Captures/Represents BlockStorage's configuration information.
 type blockstorageConfig struct {
-	ostore            objectstore.ObjectStore
+	lstore            objectstore.ObjectStore
+	tstore            objectstore.ObjectStore
 	grpcServer        *grpc.Server
 	peerHost          host.Host
 	peerContentRouter routing.ContentRouting
@@ -25,8 +26,11 @@ type blockstorageConfig struct {
 
 // validate - validates given `blockstorageConfig` instance
 func validate(s *blockstorageConfig) error {
-	if s.ostore == nil {
-		return ErrObjectstoreNotDefined
+	if s.lstore == nil {
+		return ErrLocalObjectStoreNotDefined
+	}
+	if s.tstore == nil {
+		return ErrTempObjectStoreNotDefined
 	}
 	return nil
 }
@@ -34,7 +38,8 @@ func validate(s *blockstorageConfig) error {
 // defaultBlockstorageConfig - returns instance of `blockstorageConfig` with initial values.
 func defaultBlockstorageConfig() *blockstorageConfig {
 	return &blockstorageConfig{
-		ostore:    nil,
+		lstore:    nil,
+		tstore:    nil,
 		debugMode: false,
 		chunkSize: defaultChunkSize,
 	}
@@ -51,10 +56,17 @@ func createConfig(opts ...BlockStorageOption) (*blockstorageConfig, error) {
 	return cfg, validate(cfg)
 }
 
-// WithObjectStore returns a BlockStorageOption that specifies objectstore as persistence storage
-func WithObjectStore(s objectstore.ObjectStore) BlockStorageOption {
+// WithLocalStore returns a BlockStorageOption that specifies object store as permanent store.
+func WithLocalStore(s objectstore.ObjectStore) BlockStorageOption {
 	return func(bc *blockstorageConfig) {
-		bc.ostore = s
+		bc.lstore = s
+	}
+}
+
+// WithTempStore returns a BlockStorageOption that specifies object store as temporary store.
+func WithTempStore(s objectstore.ObjectStore) BlockStorageOption {
+	return func(bc *blockstorageConfig) {
+		bc.tstore = s
 	}
 }
 

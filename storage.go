@@ -27,6 +27,7 @@ type storage struct {
 	debug      bool
 	chunkSize  int
 	localStore objectstore.ObjectStore
+	tempStore  objectstore.ObjectStore
 	host       host.Host
 	crouter    routing.ContentRouting
 }
@@ -39,7 +40,8 @@ func NewBlockStorage(ctx context.Context, opts ...BlockStorageOption) (BlockStor
 		return ret, cfgErr
 	}
 
-	ret.localStore = cfg.ostore
+	ret.localStore = cfg.lstore
+	ret.tempStore = cfg.tstore
 	ret.debug = cfg.debugMode
 	ret.chunkSize = cfg.chunkSize
 	ret.host = cfg.peerHost

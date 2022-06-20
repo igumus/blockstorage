@@ -12,12 +12,14 @@ import (
 	"github.com/libp2p/go-libp2p-core/routing"
 )
 
+// Defines/Represents block storage's public functionality
 type BlockStorage interface {
 	CreateBlock(context.Context, string, io.Reader) (string, error)
 	GetBlock(context.Context, cid.Cid) (*blockpb.Block, error)
 	Stop() error
 }
 
+// Captures/Represents block storage's internal structure
 type storage struct {
 	debug      bool
 	chunkSize  int
@@ -27,6 +29,8 @@ type storage struct {
 	crouter    routing.ContentRouting
 }
 
+// NewBlockStorage - creates a new `BlockStorage` instace. If given options are valid returns the instance.
+// Otherwise return validation error
 func NewBlockStorage(ctx context.Context, opts ...BlockStorageOption) (BlockStorage, error) {
 	ret := &storage{}
 

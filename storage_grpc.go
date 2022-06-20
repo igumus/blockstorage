@@ -32,7 +32,7 @@ func (s *storageGrpc) rpcError(code codes.Code, err error) error {
 }
 
 func (s *storageGrpc) GetBlock(ctx context.Context, req *blockpb.GetBlockRequest) (*blockpb.Block, error) {
-	ctxErr := s.storage.checkContext(ctx)
+	ctxErr := checkContext(ctx)
 	if ctxErr != nil {
 		return nil, s.rpcError(codes.Aborted, ctxErr)
 	}
@@ -47,7 +47,7 @@ func (s *storageGrpc) GetBlock(ctx context.Context, req *blockpb.GetBlockRequest
 
 func (s *storageGrpc) WriteBlock(stream blockpb.BlockStorageGrpcService_WriteBlockServer) error {
 	ctx := stream.Context()
-	ctxErr := s.storage.checkContext(ctx)
+	ctxErr := checkContext(ctx)
 	if ctxErr != nil {
 		return s.rpcError(codes.Aborted, ctxErr)
 	}
@@ -67,7 +67,7 @@ func (s *storageGrpc) WriteBlock(stream blockpb.BlockStorageGrpcService_WriteBlo
 	go func() {
 		var retErr error = nil
 		for {
-			ctxErr := s.storage.checkContext(ctx)
+			ctxErr := checkContext(ctx)
 			if ctxErr != nil {
 				retErr = ctxErr
 			}

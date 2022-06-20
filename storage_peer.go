@@ -87,7 +87,7 @@ func (s *storage) announceBlockOwnership(ctx context.Context, cid cid.Cid) bool 
 // If found any provider, returns address information of that peer(s).
 // Otherwise returns `ErrBlockProviderNotFound` error.
 func (s *storage) findBlockProvider(ctx context.Context, cid cid.Cid) ([]peer.AddrInfo, error) {
-	ctxErr := s.checkContext(ctx)
+	ctxErr := checkContext(ctx)
 	if ctxErr != nil {
 		return nil, ctxErr
 	}
@@ -110,7 +110,7 @@ func (s *storage) findBlockProvider(ctx context.Context, cid cid.Cid) ([]peer.Ad
 // While fetching creates 1:1 stream with the remote peer.
 // On succesful communication returns, byte content of desired block, otherwise returns cause error
 func (s *storage) fetchRemoteBlock(ctx context.Context, cid cid.Cid, remotePeerAddr peer.AddrInfo) ([]byte, error) {
-	ctxErr := s.checkContext(ctx)
+	ctxErr := checkContext(ctx)
 	if ctxErr != nil {
 		return nil, ctxErr
 	}
@@ -137,7 +137,7 @@ func (s *storage) fetchRemoteBlock(ctx context.Context, cid cid.Cid, remotePeerA
 }
 
 func (s *storage) getRemoteBlock(ctx context.Context, cid cid.Cid) ([]byte, error) {
-	ctxErr := s.checkContext(ctx)
+	ctxErr := checkContext(ctx)
 	if ctxErr != nil {
 		return nil, ctxErr
 	}

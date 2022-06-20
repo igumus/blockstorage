@@ -1,6 +1,9 @@
 package blockstorage
 
-import "errors"
+import (
+	"context"
+	"errors"
+)
 
 // ErrLocalObjectStoreNotDefined is return when local objectstore not specified while constructing `BlockStorage` service
 var ErrLocalObjectStoreNotDefined = errors.New("blockstorage: local object store instance not specified")
@@ -25,3 +28,18 @@ var ErrBlockOperationTimedOut = errors.New("blockstorage: operation timed out")
 
 // ErrBlockProviderNotFound is return, when there is no owner of specified block.
 var ErrBlockProviderNotFound = errors.New("blockstorage: not found any provider for block")
+
+// checkContext - checks context has error. If context has following errors;
+// - `context.DeadlineExceeded` returns `ErrBlockOperationTimedOut`
+// - `context.Canceled` returns `ErrBlockOperationCancelled`
+// Otherwise returns nil
+func checkContext(ctx context.Context) error {
+	switch ctx.Err() {
+	case context.DeadlineExceeded:
+		return ErrBlockOperationTimedOut
+	case context.Canceled:
+		return ErrBlockOperationCancelled
+	default:
+		return nil
+	}
+}

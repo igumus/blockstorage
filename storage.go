@@ -12,12 +12,7 @@ import (
 	"github.com/libp2p/go-libp2p-core/routing"
 )
 
-type contextChecker interface {
-	checkContext(context.Context) error
-}
-
 type BlockStorage interface {
-	contextChecker
 	CreateBlock(context.Context, string, io.Reader) (string, error)
 	GetBlock(context.Context, cid.Cid) (*blockpb.Block, error)
 	Stop() error
@@ -51,18 +46,6 @@ func NewBlockStorage(ctx context.Context, opts ...BlockStorageOption) (BlockStor
 	ret.registerGrpc(cfg.grpcServer)
 
 	return ret, nil
-}
-
-func (s *storage) checkContext(ctx context.Context) error {
-	if ctx.Err() == nil {
-		return nil
-	}
-	switch ctx.Err() {
-	case context.DeadlineExceeded:
-		return ErrBlockOperationTimedOut
-	default:
-		return ErrBlockOperationCancelled
-	}
 }
 
 func (s *storage) Stop() error {

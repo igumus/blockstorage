@@ -186,7 +186,7 @@ func TestGrpcContextCancellationAfterStreaming(t *testing.T) {
 	require.Nil(t, streamErr)
 	cancel()
 
-	resp, err := toGrpcStream(" ", bytes.NewReader([]byte("selam")), stream)
+	resp, err := toGrpcStream("selam", bytes.NewReader([]byte("selam")), stream)
 	require.Error(t, err)
 	require.Equal(t, "", resp)
 	st, ok := status.FromError(err)

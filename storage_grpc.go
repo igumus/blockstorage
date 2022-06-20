@@ -13,6 +13,10 @@ import (
 	"google.golang.org/grpc/status"
 )
 
+// registerGrpc - registers `BlockStorageGrpcService` server endpoint
+// to given grpc server instance if `EnableGrpcEndpoint` config option
+// specified while constructing `BlockStorage` instance. Otherwise just logs
+// server endpoint registration skipped
 func (s *storage) registerGrpc(server *grpc.Server) {
 	if server != nil {
 		blockpb.RegisterBlockStorageGrpcServiceServer(server, &storageGrpc{storage: s})
@@ -22,15 +26,20 @@ func (s *storage) registerGrpc(server *grpc.Server) {
 	}
 }
 
+// Captures/Respresents grpc server endpoint information
 type storageGrpc struct {
 	blockpb.UnimplementedBlockStorageGrpcServiceServer
 	storage BlockStorage
 }
 
+// rpcErr - converts given error and grpc error code to grpc status error
 func (s *storageGrpc) rpcError(code codes.Code, err error) error {
 	return status.Error(code, err.Error())
 }
 
+// GetBlock - is a RPC function defined in `store.proto` file. Accepts `blockpb.GetBlockRequest` which contains
+// block cid as string. After decoding block cid string to actual cid, asks to underlying `BlockStorage` instance
+// to get block
 func (s *storageGrpc) GetBlock(ctx context.Context, req *blockpb.GetBlockRequest) (*blockpb.Block, error) {
 	ctxErr := checkContext(ctx)
 	if ctxErr != nil {
@@ -45,6 +54,14 @@ func (s *storageGrpc) GetBlock(ctx context.Context, req *blockpb.GetBlockRequest
 	return s.storage.GetBlock(ctx, cid)
 }
 
+// WriteBlock - is a rpc function defined in `store.proto` file. Accepts client stream which contains
+// document name and raw chunks of document content and writes to permanent object store.
+//
+// On successful function call, returns `nil` with code `codes.OK`. Otherwise;
+// - On context error: returns associated context error with code `codes.Aborted`
+// - On receive error: returns associated error with code `codes.Aborted`
+// - On empty document name err: returns `ErrBlockNameEmpty` error with code `codes.InvalidArgument`
+// - On other errors: returns associated error with code `codes.Internal`
 func (s *storageGrpc) WriteBlock(stream blockpb.BlockStorageGrpcService_WriteBlockServer) error {
 	ctx := stream.Context()
 	ctxErr := checkContext(ctx)

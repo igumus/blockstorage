@@ -136,6 +136,16 @@ func (s *storage) fetchRemoteBlock(ctx context.Context, cid cid.Cid, remotePeerA
 	return data, err
 }
 
+// getRemoteBlock - is a helper function that gets block with given cid (aka content identifier) from p2p network.
+//
+// Flow:
+// 1. Finds provider for given block cid
+// 2. Fetches block from found provider (currently first provider) via `/blockstorage/block/read/1.0.0` peer protocol
+// 3. Persists fetched block to temporary object store.
+// 4. Returns encoded/marshalled block
+//
+// Error:
+// When any of the flow operations fail, returns `nil` with error cause
 func (s *storage) getRemoteBlock(ctx context.Context, cid cid.Cid) ([]byte, error) {
 	ctxErr := checkContext(ctx)
 	if ctxErr != nil {

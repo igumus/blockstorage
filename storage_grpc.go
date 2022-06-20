@@ -23,7 +23,7 @@ func (s *storage) registerGrpc(server *grpc.Server) {
 }
 
 type storageGrpc struct {
-	blockpb.BlockStorageGrpcServiceServer
+	blockpb.UnimplementedBlockStorageGrpcServiceServer
 	storage BlockStorage
 }
 
@@ -60,7 +60,7 @@ func (s *storageGrpc) WriteBlock(stream blockpb.BlockStorageGrpcService_WriteBlo
 	fname := request.GetName()
 	fileName := strings.TrimSpace(fname)
 	if fileName == "" {
-		return status.Error(codes.InvalidArgument, "name attribute not set")
+		return s.rpcError(codes.InvalidArgument, ErrBlockNameEmpty)
 	}
 
 	pr, pw := io.Pipe()

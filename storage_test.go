@@ -1,24 +1,35 @@
-package blockstorage_test
+package blockstorage
 
 import (
 	"bytes"
 	"context"
 	"crypto/rand"
+	"errors"
+	"fmt"
 	"io"
 	"log"
-	"strings"
+	"os"
+	"sync"
 	"testing"
+	"time"
 
-	"github.com/igumus/blockstorage"
 	fsstore "github.com/igumus/go-objectstore-fs"
-	"github.com/ipfs/go-cid"
-	"github.com/stretchr/testify/require"
+	"github.com/libp2p/go-libp2p"
+	"github.com/libp2p/go-libp2p-core/crypto"
+	"github.com/libp2p/go-libp2p-core/host"
+	"github.com/libp2p/go-libp2p-core/peer"
+	"github.com/libp2p/go-libp2p-core/peerstore"
+	dht "github.com/libp2p/go-libp2p-kad-dht"
+	routedhost "github.com/libp2p/go-libp2p/p2p/host/routed"
+	"github.com/libp2p/go-libp2p/p2p/net/connmgr"
+	ma "github.com/multiformats/go-multiaddr"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/test/bufconn"
 )
 
 const dataDir = "/tmp"
-const dataBucket = "peer"
-const bufSize = 1024 * 1024
-const chunkSize = 512 << 10
+
+var dataDirOption = fsstore.WithDataDir(dataDir)
 
 func generateRandomByteReader(size int) io.Reader {
 	if size == 0 {
@@ -34,111 +45,226 @@ func generateRandomByteReader(size int) io.Reader {
 
 }
 
-func TestBlockStorageInstanceCreation(t *testing.T) {
-	_, storageErr := blockstorage.NewBlockStorage(context.Background())
-	require.NotNil(t, storageErr)
-	require.Equal(t, storageErr, blockstorage.ErrLocalObjectStoreNotDefined)
+func generateKeyPair(ctx context.Context) (crypto.PrivKey, error) {
+
+	sk, _, err := crypto.GenerateKeyPair(crypto.Ed25519, -1)
+	if err != nil {
+		return nil, err
+	}
+	return sk, nil
 }
 
-func TestBlockCreation(t *testing.T) {
-	store, storeErr := fsstore.NewFileSystemObjectStore(fsstore.WithDataDir(dataDir), fsstore.WithBucket(dataBucket))
-	require.NoError(t, storeErr)
-	tempStore, tempStoreErr := fsstore.NewFileSystemObjectStore(fsstore.WithDataDir(dataDir), fsstore.WithBucket(dataBucket+"-temp"))
-	require.NoError(t, tempStoreErr)
+func convertPeers(peers []string) []peer.AddrInfo {
+	pinfos := make([]peer.AddrInfo, len(peers))
+	for i, addr := range peers {
+		maddr := ma.StringCast(addr)
+		p, err := peer.AddrInfoFromP2pAddr(maddr)
+		if err != nil {
+			log.Fatalln(err)
+		}
+		pinfos[i] = *p
+	}
+	return pinfos
+}
 
-	storage, storageErr := blockstorage.NewBlockStorage(context.Background(), blockstorage.WithLocalStore(store), blockstorage.WithTempStore(tempStore))
-	require.NoError(t, storageErr)
-	t.Parallel()
-
-	testCases := []struct {
-		name          string
-		data          io.Reader
-		shouldFail    bool
-		blockLinkSize int
-		err           error
-	}{
-		{
-			name:          "valid_input",
-			data:          generateRandomByteReader(3),
-			blockLinkSize: 1,
-			shouldFail:    false,
-			err:           nil,
-		},
-		{
-			name:          "equal_to_chunk_size",
-			data:          generateRandomByteReader(512 << 10),
-			blockLinkSize: 1,
-			shouldFail:    false,
-			err:           nil,
-		},
-		{
-			name:          "double_chunk_size",
-			data:          generateRandomByteReader(1024 << 10),
-			blockLinkSize: 2,
-			shouldFail:    false,
-			err:           nil,
-		},
-		{
-			name:          " spaced_name ",
-			data:          generateRandomByteReader(3),
-			blockLinkSize: 1,
-			shouldFail:    false,
-			err:           nil,
-		},
-		{
-			name:          "empty_data",
-			data:          generateRandomByteReader(0),
-			blockLinkSize: 0,
-			shouldFail:    true,
-			err:           blockstorage.ErrBlockDataEmpty,
-		},
-		{
-			name:          "",
-			data:          generateRandomByteReader(3),
-			blockLinkSize: 1,
-			shouldFail:    true,
-			err:           blockstorage.ErrBlockNameEmpty,
-		},
-		{
-			name:          " ",
-			data:          generateRandomByteReader(3),
-			blockLinkSize: 0,
-			shouldFail:    true,
-			err:           blockstorage.ErrBlockNameEmpty,
-		},
+func makeHost(ctx context.Context, listenAddr string) (host.Host, error) {
+	sk, err := generateKeyPair(ctx)
+	if err != nil {
+		log.Printf("err: generation key pair failed: %s\n", err.Error())
+		return nil, err
+	}
+	connmgr, err := connmgr.NewConnManager(
+		100,
+		400,
+		connmgr.WithGracePeriod(time.Minute),
+	)
+	if err != nil {
+		return nil, err
 	}
 
-	for i := range testCases {
-		tc := testCases[i]
+	host, err := libp2p.New(
+		libp2p.Identity(sk),
+		libp2p.ListenAddrStrings(listenAddr),
+		libp2p.ConnectionManager(connmgr),
+		libp2p.DefaultTransports,
+	)
+	if err != nil {
+		return nil, err
+	}
+	return host, nil
+}
 
-		t.Run(tc.name, func(t *testing.T) {
-			t.Parallel()
-			ctx := context.Background()
-			digest, createErr := storage.CreateBlock(ctx, tc.name, tc.data)
-			if tc.shouldFail {
-				require.NotNil(t, createErr)
-				require.Equal(t, createErr, tc.err)
-			} else {
-				require.Nil(t, createErr)
-				rootCid, decodeErr := cid.Decode(digest)
-				require.Nil(t, decodeErr)
+func makeBootstrapPeer(ctx context.Context) (host.Host, error) {
+	host, err := makeHost(ctx, bootstrapListenAddrString)
+	if err != nil {
+		return nil, err
+	}
 
-				rootBlock, readErr := storage.GetBlock(ctx, rootCid)
-				require.Nil(t, readErr)
-				require.Nil(t, rootBlock.Data)
-				require.Equal(t, 1, len(rootBlock.Links))
+	idht, err := dht.New(ctx, host, dht.Mode(dht.ModeServer))
+	if err != nil {
+		return host, err
+	}
 
-				rootLink := rootBlock.Links[0]
-				require.Equal(t, strings.TrimSpace(tc.name), rootLink.Name)
-				blockCid, cidErr := cid.Decode(rootLink.Hash)
-				require.Nil(t, cidErr)
+	if err := idht.Bootstrap(ctx); err != nil {
+		log.Printf("warn: dht bootstrapping failed: %s\n", err.Error())
+	}
+	rhost := routedhost.Wrap(host, idht)
 
-				block, readErr := storage.GetBlock(ctx, blockCid)
-				require.Nil(t, readErr)
+	return rhost, nil
+}
 
-				require.Equal(t, tc.blockLinkSize, len(block.Links))
+func connectBootstrapPeer(ctx context.Context, ph host.Host, peers ...peer.AddrInfo) error {
+	if len(peers) < 1 {
+		return errors.New("not enough bootstrap peers")
+	}
+
+	errs := make(chan error, len(peers))
+	var wg sync.WaitGroup
+	for _, p := range peers {
+		wg.Add(1)
+		go func(p peer.AddrInfo) {
+			defer wg.Done()
+			ph.Peerstore().AddAddrs(p.ID, p.Addrs, peerstore.PermanentAddrTTL)
+			if err := ph.Connect(ctx, p); err != nil {
+				log.Println(ctx, "bootstrapDialFailed", p.ID)
+				log.Printf("failed to bootstrap with %v: %s", p.ID, err)
+				errs <- err
+				return
 			}
-
-		})
+			log.Printf("bootstrapped with %v", p.ID)
+		}(p)
 	}
+	wg.Wait()
+
+	close(errs)
+	count := 0
+	var err error
+	for err = range errs {
+		if err != nil {
+			count++
+		}
+	}
+	if count == len(peers) {
+		return fmt.Errorf("failed to bootstrap. %s", err)
+	}
+	return nil
+}
+
+func makePeer(ctx context.Context, peerSeq int, bootstrapID string) (host.Host, *dht.IpfsDHT, error) {
+	port := basePeerPort + peerSeq
+	listenAddr := fmt.Sprintf(peerListenAddrStringFormat, port)
+	log.Printf("info: new peer with listen addr: %s\n", listenAddr)
+
+	host, err := makeHost(ctx, listenAddr)
+	if err != nil {
+		return nil, nil, err
+	}
+	bootstrapAddr := fmt.Sprintf(bootstrapPeerFormat, bootstrapID)
+	log.Printf("info: bootstrap peer addr: %s\n", bootstrapAddr)
+
+	bootstrapHosts := convertPeers([]string{bootstrapAddr})
+
+	idht, err := dht.New(ctx, host, dht.BootstrapPeersFunc(func() []peer.AddrInfo {
+		return bootstrapHosts
+	}))
+	if err != nil {
+		return host, nil, err
+	}
+
+	connectBootstrapPeer(ctx, host, bootstrapHosts...)
+
+	if err := idht.Bootstrap(ctx); err != nil {
+		log.Printf("warn: dht bootstrapping failed: %s\n", err.Error())
+	}
+
+	rhost := routedhost.Wrap(host, idht)
+	return rhost, idht, nil
+}
+
+func makeStoragePeer(ctx context.Context, seq int, bsid string, otherOpts ...BlockStorageOption) (*storage, func(), error) {
+	h, d, err := makePeer(ctx, seq, bsid)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	bucket := fmt.Sprintf("peer%d", seq)
+	bucketTmp := fmt.Sprintf("peer%d-temp", seq)
+	store, storeErr := fsstore.NewFileSystemObjectStore(dataDirOption, fsstore.WithBucket(bucket))
+	if storeErr != nil {
+		return nil, nil, storeErr
+	}
+	tStore, tStoreErr := fsstore.NewFileSystemObjectStore(dataDirOption, fsstore.WithBucket(bucketTmp))
+	if tStoreErr != nil {
+		return nil, nil, tStoreErr
+	}
+
+	opts := []BlockStorageOption{
+		EnableDebugMode(),
+		WithLocalStore(store),
+		WithTempStore(tStore),
+		WithPeer(h, d),
+	}
+	if len(otherOpts) > 0 {
+		opts = append(opts, otherOpts...)
+	}
+
+	s, serr := NewBlockStorage(ctx, opts...)
+	if serr != nil {
+		return nil, nil, serr
+	}
+	x := s.(*storage)
+	return x, func() {
+		d.Close()
+		h.Close()
+		os.RemoveAll(dataDir + bucket)
+		os.RemoveAll(dataDir + bucketTmp)
+	}, nil
+}
+
+func makeGrpcServer() (*grpc.Server, *bufconn.Listener, func(), func()) {
+	s := grpc.NewServer()
+	lis := bufconn.Listen(bufSize)
+	return s, lis, func() {
+			if err := s.Serve(lis); err != nil {
+				log.Fatalf("Server exited with error: %v", err)
+			}
+		}, func() {
+			s.GracefulStop()
+		}
+}
+
+const notExistsCid = "bafkreicbhkvymvquwrtgsxbed6imq5ec6526it55c3kp5lxpcjujyg7a4m"
+const bootstrapListenAddrString = "/ip4/127.0.0.1/tcp/3001"
+const bootstrapPeerFormat = bootstrapListenAddrString + "/p2p/%s"
+
+const basePeerPort = 5000
+const peerListenAddrStringFormat = "/ip4/127.0.0.1/tcp/%d"
+const bufSize = 1024 * 1024
+const chunkSize = 512 << 10
+
+var bootstrapHost host.Host
+
+func TestMain(m *testing.M) {
+	setup()
+	code := m.Run()
+	teardown()
+	os.Exit(code)
+}
+
+func setup() {
+	ctx := context.Background()
+	var err error
+	bootstrapHost, err = makeBootstrapPeer(ctx)
+	if err != nil {
+		log.Fatalf("testingErr: creating bootstrap peer failed: %s\n", err.Error())
+	}
+
+	fmt.Printf("\033[1;36m%s\033[0m", "> Setup completed\n")
+}
+
+func teardown() {
+	if bootstrapHost != nil {
+		bootstrapHost.Close()
+	}
+	fmt.Printf("\033[1;36m%s\033[0m", "> Teardown completed\n")
 }

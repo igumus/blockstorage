@@ -12,7 +12,18 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-// GetBlock - reads block with given cid (aka content identifier) from underlying object store
+// GetBlock - reads block with given cid (aka content identifier) from underlying object store.
+//
+// Flow:
+// 1. Finds store that contains block with given cid
+// 	1.1. checks permanent object store already has block with given cid, If exists reads from permanent object store.
+// 	1.2. checks temporary object store already has block with given cid, If exists reads from temporary object store.
+// 	1.3. asks p2p network to provide block with given cid, If founds any provider, stores block to temporary object store.
+// 2. Decodes/Unmarshals binary form of block to proto object instance.
+// 3. Returns proto instance (`blockpb.Block`) without error
+//
+// Error:
+// When any of the flow operations fail, returns `nil` with error cause
 func (s *storage) GetBlock(ctx context.Context, cid cid.Cid) (*blockpb.Block, error) {
 	var data []byte
 	var err error
@@ -35,9 +46,16 @@ func (s *storage) GetBlock(ctx context.Context, cid cid.Cid) (*blockpb.Block, er
 	return &block, nil
 }
 
-// persistBlock - persists given block instance to underlying objectstore.
-// When persistence success, try to announce block ownership to the network and returns link to persisted block.
-// Unsuccessful persistence returns cause error
+// persistBlock - is a helper function that persists given block instance to permanent store.
+//
+// Flow:
+// 1. Encodes/Marshals block proto object instance to binary
+// 2. Persists binary content to permanent store.
+// 3. Announces block ownership to p2p network.
+// 4. Returns proto object instance reference (`blockpb.Link`)
+//
+// Error:
+// When any of the flow operations fail, returns `nil` with error cause
 func (s *storage) persistBlock(ctx context.Context, block *blockpb.Block) (*blockpb.Link, error) {
 	blockBin, blockErr := proto.Marshal(block)
 	if blockErr != nil {
@@ -76,8 +94,19 @@ func (s *storage) persistBlockWithLinks(ctx context.Context, links ...*blockpb.L
 	return s.persistBlock(ctx, block)
 }
 
-// CreateBlock - creates block with given `name` in underlying objectstore. Reads `chunkSize` (default: 512KB) of data
-// from reader and constructs a DAG (directed acyclic graph).
+// CreateBlock - creates block with given `name` in underlying objectstore.
+//
+// Flow:
+// 1. Validates file name
+// 2. Reads `chunkSize` (default: 512KB) of data from `reader`
+//	2.1 On each reading step persists DAG (Directed Acyclic Graph) leaf nodes to permanent store.
+// 3. Creates root node to associate with leaf nodes.
+// 4. Persists root of DAG to permanent store.
+//
+// Error:
+// - When `fname` is not valid returns `"", ErrBlockNameEmpty`
+// - When reading from `reader` fails returns `"", <Reader Failure Error>`
+// - When reader not contains any data, returns `"",ErrBlockDataEmpty`
 func (s *storage) CreateBlock(ctx context.Context, fname string, reader io.Reader) (string, error) {
 	name := strings.TrimSpace(fname)
 	if name == "" {

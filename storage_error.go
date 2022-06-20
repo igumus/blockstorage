@@ -29,10 +29,10 @@ var ErrBlockOperationTimedOut = errors.New("blockstorage: operation timed out")
 // ErrBlockProviderNotFound is return, when there is no owner of specified block.
 var ErrBlockProviderNotFound = errors.New("blockstorage: not found any provider for block")
 
-// checkContext - checks context has error. If context has following errors;
+// checkContext - checks context has error. If context has not err returns nil.
+// Otherwise operates following
 // - `context.DeadlineExceeded` returns `ErrBlockOperationTimedOut`
 // - `context.Canceled` returns `ErrBlockOperationCancelled`
-// Otherwise returns nil
 func checkContext(ctx context.Context) error {
 	switch ctx.Err() {
 	case context.DeadlineExceeded:

@@ -26,5 +26,5 @@ A custom block storage example to manage (store/index etc.) block (aka file/docu
 
 * [go-objectstore-fs](https://github.com/igumus/go-objectstore-fs) : Contains file system based functionality to store encoded/serialized objects
 
-## Note:
-    - [ ] add `blockstorage` implementation details
+## Status
+`blockstorage` is still in progress.

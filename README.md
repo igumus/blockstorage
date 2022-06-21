@@ -39,3 +39,9 @@ A custom block storage example to manage (store/index etc.) block (aka file/docu
 
 ## Status
 `blockstorage` is still in progress.
+
+## TODOs
+- [ ] add block indexing mechanism
+- [ ] add garbage collection trigger mechanism (to temporaryStore)
+- [ ] add long term storage trigger
+- [ ] ...

@@ -9,7 +9,6 @@ import (
 
 	"github.com/igumus/blockstorage/blockpb"
 	"github.com/ipfs/go-cid"
-	"google.golang.org/protobuf/proto"
 )
 
 // GetBlock - reads block with given cid (aka content identifier) from underlying object store.
@@ -39,11 +38,7 @@ func (s *storage) GetBlock(ctx context.Context, cid cid.Cid) (*blockpb.Block, er
 		return nil, err
 	}
 
-	var block blockpb.Block
-	if err := proto.Unmarshal(data, &block); err != nil {
-		return nil, err
-	}
-	return &block, nil
+	return blockpb.Decode(data)
 }
 
 // persistBlock - is a helper function that persists given block instance to permanent store.
@@ -57,9 +52,9 @@ func (s *storage) GetBlock(ctx context.Context, cid cid.Cid) (*blockpb.Block, er
 // Error:
 // When any of the flow operations fail, returns `nil` with error cause
 func (s *storage) persistBlock(ctx context.Context, block *blockpb.Block) (*blockpb.Link, error) {
-	blockBin, blockErr := proto.Marshal(block)
-	if blockErr != nil {
-		return nil, blockErr
+	blockBin, encodeErr := blockpb.Encode(block)
+	if encodeErr != nil {
+		return nil, encodeErr
 	}
 
 	digest, persistErr := s.localStore.CreateObject(ctx, bytes.NewReader(blockBin))
@@ -112,7 +107,9 @@ func (s *storage) CreateBlock(ctx context.Context, fname string, reader io.Reade
 	if name == "" {
 		return "", ErrBlockNameEmpty
 	}
-
+	root := &blockpb.Block{
+		Name: name,
+	}
 	links := make([]*blockpb.Link, 0)
 	totalSize := uint64(0)
 	var buf []byte
@@ -142,11 +139,7 @@ func (s *storage) CreateBlock(ctx context.Context, fname string, reader io.Reade
 		return "", ErrBlockDataEmpty
 	}
 
-	root := &blockpb.Block{
-		Name: name,
-	}
 	root.Links = append(root.Links, links...)
-
 	rootLink, rootLinkErr := s.persistBlock(ctx, root)
 	if rootLinkErr != nil {
 		return "", rootLinkErr

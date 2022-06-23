@@ -4,7 +4,6 @@ import (
 	"context"
 	"io"
 	"os"
-	"strings"
 	"testing"
 
 	fsstore "github.com/igumus/go-objectstore-fs"
@@ -49,6 +48,7 @@ func TestBlockCreation(t *testing.T) {
 
 	testCases := []struct {
 		name          string
+		expectedName  string
 		data          io.Reader
 		shouldFail    bool
 		blockLinkSize int
@@ -56,6 +56,7 @@ func TestBlockCreation(t *testing.T) {
 	}{
 		{
 			name:          "valid_input",
+			expectedName:  "valid_input",
 			data:          generateRandomByteReader(3),
 			blockLinkSize: 1,
 			shouldFail:    false,
@@ -63,6 +64,7 @@ func TestBlockCreation(t *testing.T) {
 		},
 		{
 			name:          "equal_to_chunk_size",
+			expectedName:  "equal_to_chunk_size",
 			data:          generateRandomByteReader(512 << 10),
 			blockLinkSize: 1,
 			shouldFail:    false,
@@ -70,6 +72,7 @@ func TestBlockCreation(t *testing.T) {
 		},
 		{
 			name:          "double_chunk_size",
+			expectedName:  "double_chunk_size",
 			data:          generateRandomByteReader(1024 << 10),
 			blockLinkSize: 2,
 			shouldFail:    false,
@@ -77,6 +80,7 @@ func TestBlockCreation(t *testing.T) {
 		},
 		{
 			name:          " spaced_name ",
+			expectedName:  "spaced_name",
 			data:          generateRandomByteReader(3),
 			blockLinkSize: 1,
 			shouldFail:    false,
@@ -122,17 +126,8 @@ func TestBlockCreation(t *testing.T) {
 				rootBlock, readErr := ps.GetBlock(ctx, rootCid)
 				require.Nil(t, readErr)
 				require.Nil(t, rootBlock.Data)
-				require.Equal(t, 1, len(rootBlock.Links))
-
-				rootLink := rootBlock.Links[0]
-				require.Equal(t, strings.TrimSpace(tc.name), rootLink.Name)
-				blockCid, cidErr := cid.Decode(rootLink.Hash)
-				require.Nil(t, cidErr)
-
-				block, readErr := ps.GetBlock(ctx, blockCid)
-				require.Nil(t, readErr)
-
-				require.Equal(t, tc.blockLinkSize, len(block.Links))
+				require.Equal(t, tc.blockLinkSize, len(rootBlock.Links))
+				require.Equal(t, tc.expectedName, rootBlock.Name)
 			}
 
 		})

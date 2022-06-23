@@ -142,17 +142,14 @@ func (s *storage) CreateBlock(ctx context.Context, fname string, reader io.Reade
 		return "", ErrBlockDataEmpty
 	}
 
-	internalLink, internalLinkErr := s.persistBlockWithLinks(ctx, links...)
-	if internalLinkErr != nil {
-		return "", internalLinkErr
+	root := &blockpb.Block{
+		Name: name,
 	}
-	internalLink.Name = name
-	internalLink.Tsize = totalSize
+	root.Links = append(root.Links, links...)
 
-	link, linkErr := s.persistBlockWithLinks(ctx, internalLink)
-	if linkErr != nil {
-		return "", linkErr
+	rootLink, rootLinkErr := s.persistBlock(ctx, root)
+	if rootLinkErr != nil {
+		return "", rootLinkErr
 	}
-
-	return link.Hash, nil
+	return rootLink.Hash, nil
 }

@@ -74,9 +74,8 @@ func TestOneNetworkPeerBlockCreation(t *testing.T) {
 	require.Nil(t, err)
 	require.Nil(t, block.Data)
 	require.Equal(t, 1, len(block.Links))
-	link := block.Links[0]
-	require.Equal(t, fileName, link.Name)
-	require.Equal(t, uint64(totalSize), link.Tsize)
+	require.Equal(t, fileName, block.Name)
+	// require.Equal(t, uint64(blockblock link.Tsize)
 }
 
 func TestTwoNetworkPeersBlockFetching(t *testing.T) {
@@ -117,9 +116,7 @@ func TestTwoNetworkPeersBlockFetching(t *testing.T) {
 	require.Nil(t, err)
 	require.Nil(t, block.Data)
 	require.Equal(t, 1, len(block.Links))
-	link := block.Links[0]
-	require.Equal(t, fileName, link.Name)
-	require.Equal(t, uint64(totalSize), link.Tsize)
+	require.Equal(t, fileName, block.Name)
 
 	require.False(t, p2s.localStore.HasObject(ctx, cid))
 	remoteBlock, remoteErr := p2s.GetBlock(ctx, cid)
@@ -128,9 +125,6 @@ func TestTwoNetworkPeersBlockFetching(t *testing.T) {
 
 	require.Nil(t, remoteBlock.Data)
 	require.Equal(t, len(block.Links), len(remoteBlock.Links))
-
-	remoteLink := remoteBlock.Links[0]
-	require.Equal(t, link.Hash, remoteLink.Hash)
-	require.Equal(t, link.Tsize, remoteLink.Tsize)
+	require.Equal(t, remoteBlock.Name, block.Name)
 
 }

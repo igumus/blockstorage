@@ -11,8 +11,9 @@ message Link {
 }
 
 message Block {
-    repeated Link Links = 2;
-    bytes Data = 1;
+    repeated Link Links = 3;
+    bytes Data = 2;
+    string Name = 1; 
 }
 
 message GetBlockRequest {

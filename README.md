@@ -32,7 +32,7 @@ A custom block storage example to manage (store/index etc.) block (aka file/docu
 - [blockpb/store_pb.go](./blockpb/store.pb.go) : Contains generated proto objects according to [store.proto](./api/protobuf/store.proto)
 - [blockpb/store_grpc.pb.go](./blockpb/store_grpc.pb.go) : Contains generated proto grpc related objects according to [store.proto](./api/protobuf/store.proto)
 - [blockpb/store_aux.go](./blockpb/store_aux.go) : Contains auxiliary functions/definitions to extends proto objects
-- [storage_error.go](./storage_error.go) : Contains `blockstorage` error definitions and error checking functions
+- [errors.go](./errors.go) : Contains `blockstorage` error definitions and error checking functions
 - [storage_grpc.go](./storage_grpc.go) : Contains `blockstorage` GRPC endpoint definition and RPC function implementations
 - [storage_impl.go](./storage_impl.go) : Contains `BlockStorage` interface implementation and helper functions
 - [storage_options.go](./storage_options.go) : Contains `BlockStorage` construction option definitions

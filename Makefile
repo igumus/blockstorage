@@ -21,8 +21,7 @@ coverage: clean tidy ## Run code coverage
 
 ## Protoc:
 gen: ## Generates go source files from protobuf.
-	rm -rf blockpb
-	mkdir blockpb
+	rm -v blockpb/*.pb.go
 	protoc --go_out=blockpb --go_opt=paths=source_relative --go-grpc_out=blockpb --go-grpc_opt=paths=source_relative -I api/protobuf store.proto
 
 ## Help:

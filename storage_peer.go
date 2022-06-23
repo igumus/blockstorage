@@ -6,7 +6,9 @@ import (
 	"context"
 	"io/ioutil"
 	"log"
+	"sync"
 
+	"github.com/igumus/blockstorage/blockpb"
 	"github.com/igumus/go-objectstore-lib"
 	"github.com/ipfs/go-cid"
 	"github.com/libp2p/go-libp2p-core/network"
@@ -133,6 +135,14 @@ func (s *storage) fetchRemoteBlock(ctx context.Context, cid cid.Cid, remotePeerA
 	}
 
 	data, err := ioutil.ReadAll(stream)
+
+	newCid, createErr := s.tempStore.CreateObject(ctx, bytes.NewReader(data))
+	if createErr != nil {
+		log.Printf("err: storing remote block to temp store failed: %s, %s\n", cid, createErr.Error())
+	} else {
+		log.Printf("info: requested block:%s, received block: %s\n", cid, newCid)
+	}
+
 	return data, err
 }
 
@@ -146,28 +156,46 @@ func (s *storage) fetchRemoteBlock(ctx context.Context, cid cid.Cid, remotePeerA
 //
 // Error:
 // When any of the flow operations fail, returns `nil` with error cause
-func (s *storage) getRemoteBlock(ctx context.Context, cid cid.Cid) ([]byte, error) {
+func (s *storage) getRemoteBlock(ctx context.Context, rootcid cid.Cid) ([]byte, error) {
 	ctxErr := checkContext(ctx)
 	if ctxErr != nil {
 		return nil, ctxErr
 	}
-	providers, err := s.findBlockProvider(ctx, cid)
+	providers, err := s.findBlockProvider(ctx, rootcid)
 	if err != nil {
 		return nil, err
 	}
 	provider := providers[0]
 
-	data, err := s.fetchRemoteBlock(ctx, cid, provider)
+	data, err := s.fetchRemoteBlock(ctx, rootcid, provider)
 	if err != nil {
 		return nil, err
 	}
 
-	newCid, createErr := s.tempStore.CreateObject(ctx, bytes.NewReader(data))
-	if createErr != nil {
-		log.Printf("err: storing remote block to temp store failed: %s, %s\n", cid, createErr.Error())
-	} else {
-		log.Printf("info: requested block:%s, received block: %s\n", cid, newCid)
+	block, blockErr := blockpb.Decode(data)
+	if blockErr != nil {
+		log.Printf("err: decoding block failed: %s, %s\n", rootcid, blockErr.Error())
+		return data, nil
+	}
+
+	if len(block.Links) > 0 {
+		wg := sync.WaitGroup{}
+		wg.Add(len(block.Links))
+		for _, link := range block.Links {
+			go func(l *blockpb.Link) {
+				defer wg.Done()
+				childCid, err := cid.Decode(l.Hash)
+				if err != nil {
+					log.Printf("err: decoding child cid failed: %s, %s\n", l.Hash, err.Error())
+				}
+				if _, err := s.fetchRemoteBlock(ctx, childCid, provider); err != nil {
+					log.Printf("err: fetching remote object failed: %s, %s\n", childCid, err.Error())
+				}
+			}(link)
+		}
+		wg.Wait()
 	}
 
 	return data, nil
+
 }

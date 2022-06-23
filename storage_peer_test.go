@@ -99,32 +99,37 @@ func TestTwoNetworkPeersBlockFetching(t *testing.T) {
 	require.Nil(t, creationErr)
 	require.NotEmpty(t, digest)
 
-	cid, decodeErr := cid.Decode(digest)
+	rootcid, decodeErr := cid.Decode(digest)
 	require.Nil(t, decodeErr)
 
-	require.True(t, p1s.localStore.HasObject(ctx, cid))
-	require.False(t, p1s.tempStore.HasObject(ctx, cid))
+	require.True(t, p1s.localStore.HasObject(ctx, rootcid))
+	require.False(t, p1s.tempStore.HasObject(ctx, rootcid))
 
-	providers, err := p1s.findBlockProvider(ctx, cid)
+	providers, err := p1s.findBlockProvider(ctx, rootcid)
 	require.Nil(t, err)
 	require.Equal(t, 1, len(providers))
 
 	provider := providers[0]
 	require.Equal(t, p1s.host.ID(), provider.ID)
 
-	block, err := p1s.GetBlock(ctx, cid)
+	block, err := p1s.GetBlock(ctx, rootcid)
 	require.Nil(t, err)
 	require.Nil(t, block.Data)
 	require.Equal(t, 1, len(block.Links))
 	require.Equal(t, fileName, block.Name)
 
-	require.False(t, p2s.localStore.HasObject(ctx, cid))
-	remoteBlock, remoteErr := p2s.GetBlock(ctx, cid)
+	require.False(t, p2s.localStore.HasObject(ctx, rootcid))
+	remoteBlock, remoteErr := p2s.GetBlock(ctx, rootcid)
 	require.Nil(t, remoteErr)
-	require.True(t, p2s.tempStore.HasObject(ctx, cid))
+	require.True(t, p2s.tempStore.HasObject(ctx, rootcid))
 
 	require.Nil(t, remoteBlock.Data)
 	require.Equal(t, len(block.Links), len(remoteBlock.Links))
 	require.Equal(t, remoteBlock.Name, block.Name)
+
+	childBlockDigest := remoteBlock.Links[0].Hash
+	childCid, err := cid.Decode(childBlockDigest)
+	require.Nil(t, err)
+	require.True(t, p2s.tempStore.HasObject(ctx, childCid))
 
 }

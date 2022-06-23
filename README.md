@@ -36,7 +36,7 @@ A custom block storage example to manage (store/index etc.) block (aka file/docu
 - [grpc.go](./grpc.go) : Contains `blockstorage` GRPC endpoint definition and RPC function implementations
 - [impl.go](./impl.go) : Contains `BlockStorage` interface implementation and helper functions
 - [options.go](./options.go) : Contains `BlockStorage` construction option definitions
-- [storage_peer.go](./storage_peer.go) : Contains p2p related protocol definition and functions
+- [peer.go](./peer.go) : Contains p2p related protocol definition and functions
 - [storage.go](./storage.go) : Contains `blockstorage` construction and  `BlockStorage` interface definition
 
 ## Status

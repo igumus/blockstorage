@@ -82,13 +82,6 @@ func (s *storage) persistBlockWithData(ctx context.Context, data []byte) (*block
 	return s.persistBlock(ctx, block)
 }
 
-// persistBlockWithLinks - creates and persists block which only have `Links` field with given links
-func (s *storage) persistBlockWithLinks(ctx context.Context, links ...*blockpb.Link) (*blockpb.Link, error) {
-	block := &blockpb.Block{}
-	block.Links = append(block.Links, links...)
-	return s.persistBlock(ctx, block)
-}
-
 // CreateBlock - creates block with given `name` in underlying objectstore.
 //
 // Flow:

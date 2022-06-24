@@ -1,11 +1,18 @@
 package blockstorage
 
 import (
+	"errors"
+
+	"github.com/igumus/blockstorage/peer"
 	"github.com/igumus/go-objectstore-lib"
-	"github.com/libp2p/go-libp2p-core/host"
-	"github.com/libp2p/go-libp2p-core/routing"
 	"google.golang.org/grpc"
 )
+
+// ErrLocalObjectStoreNotDefined is return when local objectstore not specified while constructing `BlockStorage` service
+var ErrLocalObjectStoreNotDefined = errors.New("[blockstorage] block storage configuration failed: permanent store instance not specified")
+
+// ErrPeerNotSpecified is return when peer not specified while constructing `BlockStorage` service
+var ErrPeerNotSpecified = errors.New("[blockstorage] block storage configuration failed: peer instance not specified")
 
 // defaultChunkSize handles default size in KB
 const defaultChunkSize = 512 << 10
@@ -15,13 +22,11 @@ type BlockStorageOption func(*blockstorageConfig)
 
 // Captures/Represents BlockStorage's configuration information.
 type blockstorageConfig struct {
-	lstore            objectstore.ObjectStore
-	tstore            objectstore.ObjectStore
-	grpcServer        *grpc.Server
-	peerHost          host.Host
-	peerContentRouter routing.ContentRouting
-	debugMode         bool
-	chunkSize         int
+	lstore     objectstore.ObjectStore
+	grpcServer *grpc.Server
+	debugMode  bool
+	chunkSize  int
+	peer       peer.BlockStoragePeer
 }
 
 // validate - validates given `blockstorageConfig` instance
@@ -29,8 +34,8 @@ func validate(s *blockstorageConfig) error {
 	if s.lstore == nil {
 		return ErrLocalObjectStoreNotDefined
 	}
-	if s.tstore == nil {
-		return ErrTempObjectStoreNotDefined
+	if s.peer == nil {
+		return ErrPeerNotSpecified
 	}
 	return nil
 }
@@ -39,7 +44,7 @@ func validate(s *blockstorageConfig) error {
 func defaultBlockstorageConfig() *blockstorageConfig {
 	return &blockstorageConfig{
 		lstore:    nil,
-		tstore:    nil,
+		peer:      nil,
 		debugMode: false,
 		chunkSize: defaultChunkSize,
 	}
@@ -63,18 +68,10 @@ func WithLocalStore(s objectstore.ObjectStore) BlockStorageOption {
 	}
 }
 
-// WithTempStore returns a BlockStorageOption that specifies object store as temporary store.
-func WithTempStore(s objectstore.ObjectStore) BlockStorageOption {
-	return func(bc *blockstorageConfig) {
-		bc.tstore = s
-	}
-}
-
 // WithPeer returns a BlockStorageOption that specifies peer host and peer content router to satify p2p capabilities
-func WithPeer(h host.Host, r routing.ContentRouting) BlockStorageOption {
+func WithPeer(p peer.BlockStoragePeer) BlockStorageOption {
 	return func(bc *blockstorageConfig) {
-		bc.peerHost = h
-		bc.peerContentRouter = r
+		bc.peer = p
 	}
 }
 

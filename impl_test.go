@@ -3,49 +3,19 @@ package blockstorage
 import (
 	"context"
 	"io"
-	"os"
+	"io/ioutil"
 	"testing"
 
-	fsstore "github.com/igumus/go-objectstore-fs"
+	"github.com/golang/mock/gomock"
+	mockpeer "github.com/igumus/blockstorage/peer/mock"
+	"github.com/igumus/go-objectstore-lib"
+	"github.com/igumus/go-objectstore-lib/mock"
 	"github.com/ipfs/go-cid"
 	"github.com/stretchr/testify/require"
 )
 
-func TestBlockStorageCreationWithNoStores(t *testing.T) {
-	_, storageErr := NewBlockStorage(context.Background())
-	require.NotNil(t, storageErr)
-	require.Equal(t, storageErr, ErrLocalObjectStoreNotDefined)
-}
-
-func TestBlockStorageCreationWithOutTempStore(t *testing.T) {
-	folderName := "peer1234-local"
-	localStore, err := fsstore.NewFileSystemObjectStore(dataDirOption, fsstore.WithBucket(folderName))
-	require.NoError(t, err)
-	_, storageErr := NewBlockStorage(context.Background(), WithLocalStore(localStore))
-	require.Equal(t, storageErr, ErrTempObjectStoreNotDefined)
-	os.RemoveAll(folderName)
-}
-
-func TestBlockStorageCreationWithOutPeer(t *testing.T) {
-	localFolderName := "peer1234-local"
-	tempFolderName := "peer1234-temp"
-	localStore, err := fsstore.NewFileSystemObjectStore(dataDirOption, fsstore.WithBucket(localFolderName))
-	require.NoError(t, err)
-	tempStore, err := fsstore.NewFileSystemObjectStore(dataDirOption, fsstore.WithBucket(tempFolderName))
-	require.NoError(t, err)
-	_, storageErr := NewBlockStorage(context.Background(), WithLocalStore(localStore), WithTempStore(tempStore))
-	require.NoError(t, storageErr)
-	os.RemoveAll(localFolderName)
-	os.RemoveAll(tempFolderName)
-}
-
-func TestBlockCreation(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-	ps, pshutdown, perr := makeStoragePeer(ctx, 1, bootstrapHost.ID().String())
-	require.NoError(t, perr)
-	defer pshutdown()
-
+func (s *blockStorageSuite) TestBlockCreation() {
+	ctx := context.Background()
 	testCases := []struct {
 		name          string
 		expectedName  string
@@ -57,7 +27,7 @@ func TestBlockCreation(t *testing.T) {
 		{
 			name:          "valid_input",
 			expectedName:  "valid_input",
-			data:          generateRandomByteReader(3),
+			data:          generateRandomByteReader(s.T(), 3),
 			blockLinkSize: 1,
 			shouldFail:    false,
 			err:           nil,
@@ -65,7 +35,7 @@ func TestBlockCreation(t *testing.T) {
 		{
 			name:          "equal_to_chunk_size",
 			expectedName:  "equal_to_chunk_size",
-			data:          generateRandomByteReader(512 << 10),
+			data:          generateRandomByteReader(s.T(), 512<<10),
 			blockLinkSize: 1,
 			shouldFail:    false,
 			err:           nil,
@@ -73,7 +43,7 @@ func TestBlockCreation(t *testing.T) {
 		{
 			name:          "double_chunk_size",
 			expectedName:  "double_chunk_size",
-			data:          generateRandomByteReader(1024 << 10),
+			data:          generateRandomByteReader(s.T(), 1024<<10),
 			blockLinkSize: 2,
 			shouldFail:    false,
 			err:           nil,
@@ -81,28 +51,28 @@ func TestBlockCreation(t *testing.T) {
 		{
 			name:          " spaced_name ",
 			expectedName:  "spaced_name",
-			data:          generateRandomByteReader(3),
+			data:          generateRandomByteReader(s.T(), 3),
 			blockLinkSize: 1,
 			shouldFail:    false,
 			err:           nil,
 		},
 		{
 			name:          "empty_data",
-			data:          generateRandomByteReader(0),
+			data:          generateRandomByteReader(s.T(), 0),
 			blockLinkSize: 0,
 			shouldFail:    true,
 			err:           ErrBlockDataEmpty,
 		},
 		{
 			name:          "",
-			data:          generateRandomByteReader(3),
+			data:          generateRandomByteReader(s.T(), 3),
 			blockLinkSize: 1,
 			shouldFail:    true,
 			err:           ErrBlockNameEmpty,
 		},
 		{
 			name:          " ",
-			data:          generateRandomByteReader(3),
+			data:          generateRandomByteReader(s.T(), 3),
 			blockLinkSize: 0,
 			shouldFail:    true,
 			err:           ErrBlockNameEmpty,
@@ -112,18 +82,43 @@ func TestBlockCreation(t *testing.T) {
 	for i := range testCases {
 		tc := testCases[i]
 
-		t.Run(tc.name, func(t *testing.T) {
-			ctx := context.Background()
-			digest, createErr := ps.CreateBlock(ctx, tc.name, tc.data)
+		s.T().Run(tc.name, func(t *testing.T) {
+			store := mock.NewMockObjectStore(s.ctrl)
+			peer := mockpeer.NewMockBlockStoragePeer(s.ctrl)
+			peer.EXPECT().AnnounceBlock(gomock.Any(), gomock.Any()).AnyTimes().Return(true)
+
+			storage, err := newBlockStorage(ctx, WithLocalStore(store), WithPeer(peer))
+			require.NoError(s.T(), err)
+
+			lookup := make(map[cid.Cid][]byte)
+
+			if !tc.shouldFail {
+				store.EXPECT().HasObject(gomock.Any(), gomock.Any()).AnyTimes().Return(true)
+				store.EXPECT().CreateObject(gomock.Any(), gomock.Any()).AnyTimes().DoAndReturn(func(_ context.Context, r io.Reader) (cid.Cid, error) {
+					data, err := ioutil.ReadAll(r)
+					require.NoError(s.T(), err)
+
+					id, err := objectstore.DigestPrefix.Sum(data)
+					require.NoError(s.T(), err)
+					lookup[id] = data
+					return id, nil
+				})
+				store.EXPECT().ReadObject(gomock.Any(), gomock.Any()).AnyTimes().DoAndReturn(func(_ context.Context, id cid.Cid) ([]byte, error) {
+					return lookup[id], nil
+				})
+			}
+
+			digest, createErr := storage.CreateBlock(ctx, tc.name, tc.data)
+
 			if tc.shouldFail {
-				require.NotNil(t, createErr)
-				require.Equal(t, createErr, tc.err)
+				require.NotNil(s.T(), createErr)
+				require.Equal(s.T(), createErr, tc.err)
 			} else {
 				require.Nil(t, createErr)
-				rootCid, decodeErr := cid.Decode(digest)
-				require.Nil(t, decodeErr)
+				rootCid, err := cid.Decode(digest)
+				require.NoError(s.T(), err)
 
-				rootBlock, readErr := ps.GetBlock(ctx, rootCid)
+				rootBlock, readErr := storage.GetBlock(ctx, rootCid)
 				require.Nil(t, readErr)
 				require.Nil(t, rootBlock.Data)
 				require.Equal(t, tc.blockLinkSize, len(rootBlock.Links))

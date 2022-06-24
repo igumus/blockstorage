@@ -6,10 +6,9 @@ import (
 	"log"
 
 	"github.com/igumus/blockstorage/blockpb"
+	"github.com/igumus/blockstorage/peer"
 	"github.com/igumus/go-objectstore-lib"
 	"github.com/ipfs/go-cid"
-	"github.com/libp2p/go-libp2p-core/host"
-	"github.com/libp2p/go-libp2p-core/routing"
 )
 
 // Defines/Represents block storage's public functionality
@@ -24,9 +23,27 @@ type storage struct {
 	debug      bool
 	chunkSize  int
 	localStore objectstore.ObjectStore
-	tempStore  objectstore.ObjectStore
-	host       host.Host
-	crouter    routing.ContentRouting
+	peer       peer.BlockStoragePeer
+}
+
+// newBlockStorage - creates new `BlockStorage` instance for unit testing
+func newBlockStorage(ctx context.Context, opts ...BlockStorageOption) (BlockStorage, error) {
+	ret := &storage{}
+
+	cfg, cfgErr := createConfig(opts...)
+	if cfgErr != nil {
+		return ret, cfgErr
+	}
+
+	ret.debug = cfg.debugMode
+
+	ret.localStore = cfg.lstore
+	ret.peer = cfg.peer
+
+	ret.chunkSize = cfg.chunkSize
+	ret.registerGrpc(cfg.grpcServer)
+
+	return ret, nil
 }
 
 // NewBlockStorage - creates a new `BlockStorage` instace. If given options are valid returns the instance.
@@ -39,14 +56,13 @@ func NewBlockStorage(ctx context.Context, opts ...BlockStorageOption) (BlockStor
 		return ret, cfgErr
 	}
 
-	ret.localStore = cfg.lstore
-	ret.tempStore = cfg.tstore
 	ret.debug = cfg.debugMode
-	ret.chunkSize = cfg.chunkSize
-	ret.host = cfg.peerHost
-	ret.crouter = cfg.peerContentRouter
 
-	ret.registerPeerProtocol()
+	ret.localStore = cfg.lstore
+	ret.peer = cfg.peer
+	ret.peer.RegisterReadProtocol(ctx, ret.localStore)
+
+	ret.chunkSize = cfg.chunkSize
 	ret.registerGrpc(cfg.grpcServer)
 
 	return ret, nil

@@ -4,12 +4,6 @@ import (
 	"errors"
 )
 
-// ErrLocalObjectStoreNotDefined is return when local objectstore not specified while constructing `BlockStorage` service
-var ErrLocalObjectStoreNotDefined = errors.New("blockstorage: local object store instance not specified")
-
-// ErrTempObjectStoreNotDefined is return when temp objectstore not specified while constructing `BlockStorage` service
-var ErrTempObjectStoreNotDefined = errors.New("blockstorage: temp object store instance not specified")
-
 // ErrBlockNameEmpty is return, when persisting new block name is empty.
 var ErrBlockNameEmpty = errors.New("blockstorage: block name should not be empty")
 

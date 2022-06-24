@@ -29,10 +29,8 @@ func (s *storage) GetBlock(ctx context.Context, cid cid.Cid) (*blockpb.Block, er
 
 	if s.localStore.HasObject(ctx, cid) {
 		data, err = s.localStore.ReadObject(ctx, cid)
-	} else if s.tempStore.HasObject(ctx, cid) {
-		data, err = s.tempStore.ReadObject(ctx, cid)
 	} else {
-		data, err = s.getRemoteBlock(ctx, cid)
+		data, err = s.peer.GetRemoteBlock(ctx, cid)
 	}
 	if err != nil {
 		return nil, err
@@ -66,7 +64,7 @@ func (s *storage) persistBlock(ctx context.Context, block *blockpb.Block) (*bloc
 		log.Printf("debug: wrote block with digest: %s, %d\n", digest.String(), len(block.Data))
 	}
 
-	s.announceBlockOwnership(ctx, digest)
+	s.peer.AnnounceBlock(ctx, digest)
 
 	return &blockpb.Link{
 		Hash:  digest.String(),

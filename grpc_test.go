@@ -1,14 +1,18 @@
 package blockstorage
 
 import (
-	"bytes"
 	"context"
 	"io"
+	"io/ioutil"
 	"log"
 	"net"
 	"testing"
 
+	"github.com/golang/mock/gomock"
 	"github.com/igumus/blockstorage/blockpb"
+	mockpeer "github.com/igumus/blockstorage/peer/mock"
+	"github.com/igumus/go-objectstore-lib"
+	"github.com/igumus/go-objectstore-lib/mock"
 	"github.com/ipfs/go-cid"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
@@ -17,6 +21,20 @@ import (
 	"google.golang.org/grpc/status"
 	"google.golang.org/grpc/test/bufconn"
 )
+
+const bufSize = 1024 * 1024
+
+func makeGrpcServer() (*grpc.Server, *bufconn.Listener, func(), func()) {
+	s := grpc.NewServer()
+	lis := bufconn.Listen(bufSize)
+	return s, lis, func() {
+			if err := s.Serve(lis); err != nil {
+				log.Fatalf("Server exited with error: %v", err)
+			}
+		}, func() {
+			s.GracefulStop()
+		}
+}
 
 func bufDialerFunc(lis *bufconn.Listener) func(context.Context, string) (net.Conn, error) {
 	return func(ctx context.Context, s string) (net.Conn, error) {
@@ -35,7 +53,7 @@ func toGrpcStream(filename string, reader io.Reader, stream blockpb.BlockStorage
 
 	var buf []byte
 	for {
-		buf = make([]byte, chunkSize)
+		buf = make([]byte, 512<<10)
 		n, err := reader.Read(buf)
 		if err != nil {
 			if err != io.EOF {
@@ -62,15 +80,27 @@ func toGrpcStream(filename string, reader io.Reader, stream blockpb.BlockStorage
 	return resp.Cid, nil
 }
 
-func TestBlockCreationViaGrpc(t *testing.T) {
+func (s *blockStorageSuite) TestBlockCreationViaGrpc() {
 	ctx := context.Background()
 	server, lis, setup, teardown := makeGrpcServer()
+
+	store := mock.NewMockObjectStore(s.ctrl)
+	store.EXPECT().HasObject(gomock.Any(), gomock.Any()).AnyTimes().Return(true)
+	store.EXPECT().CreateObject(gomock.Any(), gomock.Any()).AnyTimes().DoAndReturn(func(_ context.Context, r io.Reader) (cid.Cid, error) {
+		data, err := ioutil.ReadAll(r)
+		require.NoError(s.T(), err)
+
+		return objectstore.DigestPrefix.Sum(data)
+	})
+	peer := mockpeer.NewMockBlockStoragePeer(s.ctrl)
+	peer.EXPECT().AnnounceBlock(gomock.Any(), gomock.Any()).AnyTimes().Return(true)
+
+	_, err := newBlockStorage(ctx, EnableDebugMode(), WithLocalStore(store), WithPeer(peer), EnableGrpcEndpoint(server))
+	require.NoError(s.T(), err)
+
 	bufDialer := bufDialerFunc(lis)
-	_, shutdown, err := makeStoragePeer(ctx, 1, bootstrapHost.ID().String(), EnableGrpcEndpoint(server))
-	require.NoError(t, err)
 	go setup()
 	defer teardown()
-	defer shutdown()
 
 	testCases := []struct {
 		name string
@@ -79,32 +109,32 @@ func TestBlockCreationViaGrpc(t *testing.T) {
 	}{
 		{
 			name: "valid_name_valid_data",
-			data: generateRandomByteReader(3),
+			data: generateRandomByteReader(s.T(), 3),
 			code: codes.OK,
 		},
 		{
 			name: " spaced_name ",
-			data: generateRandomByteReader(3),
+			data: generateRandomByteReader(s.T(), 3),
 			code: codes.OK,
 		},
 		{
 			name: "valid_name_empty_data",
-			data: generateRandomByteReader(0),
+			data: generateRandomByteReader(s.T(), 0),
 			code: codes.Internal,
 		},
 		{
 			name: "",
-			data: generateRandomByteReader(3),
+			data: generateRandomByteReader(s.T(), 3),
 			code: codes.InvalidArgument,
 		},
 		{
 			name: " ",
-			data: generateRandomByteReader(3),
+			data: generateRandomByteReader(s.T(), 3),
 			code: codes.InvalidArgument,
 		},
 		{
 			name: "           ",
-			data: generateRandomByteReader(3),
+			data: generateRandomByteReader(s.T(), 3),
 			code: codes.InvalidArgument,
 		},
 	}
@@ -112,7 +142,7 @@ func TestBlockCreationViaGrpc(t *testing.T) {
 	for i := range testCases {
 		tc := testCases[i]
 
-		t.Run(tc.name, func(t *testing.T) {
+		s.T().Run(tc.name, func(t *testing.T) {
 			conn, err := grpc.DialContext(ctx, "bufnet", grpc.WithContextDialer(bufDialer), grpc.WithTransportCredentials(insecure.NewCredentials()))
 			if err != nil {
 				t.Fatalf("Failed to dial bufnet: %v", err)
@@ -124,7 +154,7 @@ func TestBlockCreationViaGrpc(t *testing.T) {
 				log.Fatalf("testingErr: creating stream failed: %s\n", streamErr.Error())
 			}
 			require.Nil(t, streamErr)
-			digest, err := toGrpcStream(tc.name, tc.data, stream)
+			_, err = toGrpcStream(tc.name, tc.data, stream)
 			if tc.code != codes.OK {
 				require.NotNil(t, err)
 				st, ok := status.FromError(err)
@@ -132,64 +162,9 @@ func TestBlockCreationViaGrpc(t *testing.T) {
 				require.Equal(t, tc.code, st.Code())
 			} else {
 				require.Nil(t, err)
-				_, decodeErr := cid.Decode(digest)
-				require.Nil(t, decodeErr)
 			}
 		})
 
 	}
 
-}
-
-func TestGrpcContextCancellationBeforeStreaming(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
-	server, lis, setup, teardown := makeGrpcServer()
-	bufDialer := bufDialerFunc(lis)
-	_, shutdown, err := makeStoragePeer(ctx, 1, bootstrapHost.ID().String(), EnableGrpcEndpoint(server))
-	require.NoError(t, err)
-	go setup()
-	defer teardown()
-	defer shutdown()
-
-	conn, err := grpc.DialContext(ctx, "bufnet", grpc.WithContextDialer(bufDialer), grpc.WithTransportCredentials(insecure.NewCredentials()))
-	if err != nil {
-		t.Fatalf("Failed to dial bufnet: %v", err)
-	}
-	defer conn.Close()
-	client := blockpb.NewBlockStorageGrpcServiceClient(conn)
-	cancel()
-	_, streamErr := client.WriteBlock(ctx)
-	require.NotNil(t, streamErr)
-	st, ok := status.FromError(streamErr)
-	require.True(t, ok)
-	require.Equal(t, codes.Canceled, st.Code())
-}
-
-func TestGrpcContextCancellationAfterStreaming(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-	server, lis, setup, teardown := makeGrpcServer()
-	bufDialer := bufDialerFunc(lis)
-	_, shutdown, err := makeStoragePeer(ctx, 1, bootstrapHost.ID().String(), EnableGrpcEndpoint(server))
-	require.NoError(t, err)
-	go setup()
-	defer teardown()
-	defer shutdown()
-
-	conn, err := grpc.DialContext(ctx, "bufnet", grpc.WithContextDialer(bufDialer), grpc.WithTransportCredentials(insecure.NewCredentials()))
-	if err != nil {
-		t.Fatalf("Failed to dial bufnet: %v", err)
-	}
-	defer conn.Close()
-	client := blockpb.NewBlockStorageGrpcServiceClient(conn)
-	stream, streamErr := client.WriteBlock(ctx)
-	require.Nil(t, streamErr)
-	cancel()
-
-	resp, err := toGrpcStream("selam", bytes.NewReader([]byte("selam")), stream)
-	require.Error(t, err)
-	require.Equal(t, "", resp)
-	st, ok := status.FromError(err)
-	require.True(t, ok)
-	require.Equal(t, codes.Canceled, st.Code())
 }

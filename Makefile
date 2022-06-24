@@ -13,16 +13,22 @@ clean: ## Cleans temporary folder
 build: clean tidy ## Builds project
 	go build ./...
 
-test: clean tidy ## Run unit tests
-	go test -v
+test-clean: ## Cleans test cache
+	go clean -testcache
 
-coverage: clean tidy ## Run code coverage
-	go test -cover	
+test: clean tidy test-clean ## Runs unit tests
+	go test github.com/igumus/blockstorage{,/peer}
 
-## Protoc:
-gen: ## Generates go source files from protobuf.
+coverage: clean tidy test-clean ## Run code coverage
+	go test -cover github.com/igumus/blockstorage{,/peer}
+
+## Generations:
+gen-proto: ## Generates go source files from protobuf.
 	rm -fv blockpb/*.pb.go
 	protoc --go_out=blockpb --go_opt=paths=source_relative --go-grpc_out=blockpb --go-grpc_opt=paths=source_relative -I api/protobuf store.proto
+
+gen-mock: ## Generates mock objects
+	go generate ./...
 
 ## Help:
 help: ## Show this help.

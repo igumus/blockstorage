@@ -1,7 +1,6 @@
 package blockstorage
 
 import (
-	"context"
 	"errors"
 )
 
@@ -20,26 +19,5 @@ var ErrBlockDataEmpty = errors.New("blockstorage: block data should not be empty
 // ErrBlockIdentifierNotValid is return, when block cid (aka content identifier) not valid
 var ErrBlockIdentifierNotValid = errors.New("blockstorage: block identifier not valid")
 
-// ErrBlockOperationCancelled is return, when operation cancelled via context
-var ErrBlockOperationCancelled = errors.New("blockstorage: operation context cancelled")
-
-// ErrBlockOperationTimedOut is return, when operation deadline exceeded
-var ErrBlockOperationTimedOut = errors.New("blockstorage: operation timed out")
-
 // ErrBlockProviderNotFound is return, when there is no owner of specified block.
 var ErrBlockProviderNotFound = errors.New("blockstorage: not found any provider for block")
-
-// checkContext - checks context has error. If context has not err returns nil.
-// Otherwise operates following
-// - `context.DeadlineExceeded` returns `ErrBlockOperationTimedOut`
-// - `context.Canceled` returns `ErrBlockOperationCancelled`
-func checkContext(ctx context.Context) error {
-	switch ctx.Err() {
-	case context.DeadlineExceeded:
-		return ErrBlockOperationTimedOut
-	case context.Canceled:
-		return ErrBlockOperationCancelled
-	default:
-		return nil
-	}
-}

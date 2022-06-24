@@ -4,6 +4,7 @@ import (
 	"context"
 	"testing"
 
+	"github.com/igumus/blockstorage/util"
 	"github.com/ipfs/go-cid"
 	"github.com/stretchr/testify/require"
 )
@@ -20,7 +21,7 @@ func TestOneNetworkPeerContextHandling(t *testing.T) {
 
 	cancel()
 	_, err = p1s.findBlockProvider(ctx, cid)
-	require.Equal(t, ErrBlockOperationCancelled, err)
+	require.Equal(t, util.ErrOperationCancelled, err)
 
 }
 

@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/igumus/blockstorage/blockpb"
+	"github.com/igumus/blockstorage/util"
 	"github.com/ipfs/go-cid"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -41,7 +42,7 @@ func (s *storageGrpc) rpcError(code codes.Code, err error) error {
 // block cid as string. After decoding block cid string to actual cid, asks to underlying `BlockStorage` instance
 // to get block
 func (s *storageGrpc) GetBlock(ctx context.Context, req *blockpb.GetBlockRequest) (*blockpb.Block, error) {
-	ctxErr := checkContext(ctx)
+	ctxErr := util.CheckContext(ctx)
 	if ctxErr != nil {
 		return nil, s.rpcError(codes.Aborted, ctxErr)
 	}
@@ -64,7 +65,7 @@ func (s *storageGrpc) GetBlock(ctx context.Context, req *blockpb.GetBlockRequest
 // - On other errors: returns associated error with code `codes.Internal`
 func (s *storageGrpc) WriteBlock(stream blockpb.BlockStorageGrpcService_WriteBlockServer) error {
 	ctx := stream.Context()
-	ctxErr := checkContext(ctx)
+	ctxErr := util.CheckContext(ctx)
 	if ctxErr != nil {
 		return s.rpcError(codes.Aborted, ctxErr)
 	}
@@ -84,7 +85,7 @@ func (s *storageGrpc) WriteBlock(stream blockpb.BlockStorageGrpcService_WriteBlo
 	go func() {
 		var retErr error = nil
 		for {
-			ctxErr := checkContext(ctx)
+			ctxErr := util.CheckContext(ctx)
 			if ctxErr != nil {
 				retErr = ctxErr
 			}

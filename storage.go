@@ -41,7 +41,27 @@ func newBlockStorage(ctx context.Context, opts ...BlockStorageOption) (BlockStor
 	ret.peer = cfg.peer
 
 	ret.chunkSize = cfg.chunkSize
-	ret.registerGrpc(cfg.grpcServer)
+
+	return ret, nil
+}
+
+// NewFakeBlockStorage - creates a new `BlockStorage` instance for mocking.
+// - Registering peer Read Protocol disabled.
+// DO NOT USE AS REAL INSTANCE.
+func NewFakeBlockStorage(ctx context.Context, opts ...BlockStorageOption) (BlockStorage, error) {
+	ret := &storage{}
+
+	cfg, cfgErr := createConfig(opts...)
+	if cfgErr != nil {
+		return ret, cfgErr
+	}
+
+	ret.debug = cfg.debugMode
+
+	ret.localStore = cfg.lstore
+	ret.peer = cfg.peer
+
+	ret.chunkSize = cfg.chunkSize
 
 	return ret, nil
 }
@@ -63,7 +83,6 @@ func NewBlockStorage(ctx context.Context, opts ...BlockStorageOption) (BlockStor
 	ret.peer.RegisterReadProtocol(ctx, ret.localStore)
 
 	ret.chunkSize = cfg.chunkSize
-	ret.registerGrpc(cfg.grpcServer)
 
 	return ret, nil
 }

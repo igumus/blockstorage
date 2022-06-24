@@ -1,36 +1,31 @@
-package blockstorage
+package grpc
 
 import (
 	"context"
+	"errors"
 	"io"
 	"log"
 	"strings"
 
+	"github.com/igumus/blockstorage"
 	"github.com/igumus/blockstorage/blockpb"
 	"github.com/igumus/blockstorage/util"
 	"github.com/ipfs/go-cid"
-	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
 
-// registerGrpc - registers `BlockStorageGrpcService` server endpoint
-// to given grpc server instance if `EnableGrpcEndpoint` config option
-// specified while constructing `BlockStorage` instance. Otherwise just logs
-// server endpoint registration skipped
-func (s *storage) registerGrpc(server *grpc.Server) {
-	if server != nil {
-		blockpb.RegisterBlockStorageGrpcServiceServer(server, &storageGrpc{storage: s})
-		log.Println("info: grpc endpoint registration success")
-	} else {
-		log.Println("info: grpc endpoint registration skipped")
-	}
-}
-
 // Captures/Respresents grpc server endpoint information
 type storageGrpc struct {
 	blockpb.UnimplementedBlockStorageGrpcServiceServer
-	storage BlockStorage
+	storage blockstorage.BlockStorage
+}
+
+func NewBlockStorageServiceEndpoint(ctx context.Context, s blockstorage.BlockStorage) (blockpb.BlockStorageGrpcServiceServer, error) {
+	if s == nil {
+		return nil, errors.New("blockstorage: service not defined for endpoint")
+	}
+	return &storageGrpc{storage: s}, nil
 }
 
 // rpcErr - converts given error and grpc error code to grpc status error
@@ -49,7 +44,7 @@ func (s *storageGrpc) GetBlock(ctx context.Context, req *blockpb.GetBlockRequest
 	digest := req.GetCid()
 	cid, decodeErr := cid.Decode(digest)
 	if decodeErr != nil {
-		return nil, s.rpcError(codes.InvalidArgument, ErrBlockIdentifierNotValid)
+		return nil, s.rpcError(codes.InvalidArgument, blockstorage.ErrBlockIdentifierNotValid)
 	}
 
 	return s.storage.GetBlock(ctx, cid)
@@ -78,7 +73,7 @@ func (s *storageGrpc) WriteBlock(stream blockpb.BlockStorageGrpcService_WriteBlo
 	fname := request.GetName()
 	fileName := strings.TrimSpace(fname)
 	if fileName == "" {
-		return s.rpcError(codes.InvalidArgument, ErrBlockNameEmpty)
+		return s.rpcError(codes.InvalidArgument, blockstorage.ErrBlockNameEmpty)
 	}
 
 	pr, pw := io.Pipe()

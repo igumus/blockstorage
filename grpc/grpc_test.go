@@ -1,14 +1,14 @@
-package blockstorage
+package grpc
 
 import (
 	"context"
 	"io"
 	"io/ioutil"
 	"log"
-	"net"
 	"testing"
 
 	"github.com/golang/mock/gomock"
+	"github.com/igumus/blockstorage"
 	"github.com/igumus/blockstorage/blockpb"
 	mockpeer "github.com/igumus/blockstorage/peer/mock"
 	"github.com/igumus/go-objectstore-lib"
@@ -19,68 +19,9 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/status"
-	"google.golang.org/grpc/test/bufconn"
 )
 
-const bufSize = 1024 * 1024
-
-func makeGrpcServer() (*grpc.Server, *bufconn.Listener, func(), func()) {
-	s := grpc.NewServer()
-	lis := bufconn.Listen(bufSize)
-	return s, lis, func() {
-			if err := s.Serve(lis); err != nil {
-				log.Fatalf("Server exited with error: %v", err)
-			}
-		}, func() {
-			s.GracefulStop()
-		}
-}
-
-func bufDialerFunc(lis *bufconn.Listener) func(context.Context, string) (net.Conn, error) {
-	return func(ctx context.Context, s string) (net.Conn, error) {
-		return lis.Dial()
-	}
-}
-
-func toGrpcStream(filename string, reader io.Reader, stream blockpb.BlockStorageGrpcService_WriteBlockClient) (string, error) {
-	if sendErr := stream.Send(&blockpb.WriteBlockRequest{
-		Data: &blockpb.WriteBlockRequest_Name{
-			Name: filename,
-		},
-	}); sendErr != nil {
-		return "", stream.RecvMsg(nil)
-	}
-
-	var buf []byte
-	for {
-		buf = make([]byte, 512<<10)
-		n, err := reader.Read(buf)
-		if err != nil {
-			if err != io.EOF {
-				return "", err
-			}
-			break
-		}
-
-		sendErr := stream.Send(&blockpb.WriteBlockRequest{
-			Data: &blockpb.WriteBlockRequest_ChunkData{
-				ChunkData: buf[:n],
-			},
-		})
-		if sendErr != nil {
-			return "", stream.RecvMsg(nil)
-		}
-	}
-
-	resp, respErr := stream.CloseAndRecv()
-	if respErr != nil {
-		return "", respErr
-	}
-
-	return resp.Cid, nil
-}
-
-func (s *blockStorageSuite) TestBlockCreationViaGrpc() {
+func (s *grpcSuite) TestBlockCreationViaGrpc() {
 	ctx := context.Background()
 	server, lis, setup, teardown := makeGrpcServer()
 
@@ -95,8 +36,17 @@ func (s *blockStorageSuite) TestBlockCreationViaGrpc() {
 	peer := mockpeer.NewMockBlockStoragePeer(s.ctrl)
 	peer.EXPECT().AnnounceBlock(gomock.Any(), gomock.Any()).AnyTimes().Return(true)
 
-	_, err := newBlockStorage(ctx, EnableDebugMode(), WithLocalStore(store), WithPeer(peer), EnableGrpcEndpoint(server))
+	storage, err := blockstorage.NewFakeBlockStorage(ctx,
+		blockstorage.EnableDebugMode(),
+		blockstorage.WithLocalStore(store),
+		blockstorage.WithPeer(peer),
+		blockstorage.EnableGrpcEndpoint(server),
+	)
 	require.NoError(s.T(), err)
+
+	endpoint, err := NewBlockStorageServiceEndpoint(ctx, storage)
+	require.NoError(s.T(), err)
+	blockpb.RegisterBlockStorageGrpcServiceServer(server, endpoint)
 
 	bufDialer := bufDialerFunc(lis)
 	go setup()

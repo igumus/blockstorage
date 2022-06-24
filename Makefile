@@ -17,10 +17,10 @@ test-clean: ## Cleans test cache
 	go clean -testcache
 
 test: clean tidy test-clean ## Runs unit tests
-	go test github.com/igumus/blockstorage{,/peer}
+	go test github.com/igumus/blockstorage{,/peer,/grpc}
 
 coverage: clean tidy test-clean ## Run code coverage
-	go test -cover github.com/igumus/blockstorage{,/peer}
+	go test -cover github.com/igumus/blockstorage{,/peer,/grpc}
 
 ## Generations:
 gen-proto: ## Generates go source files from protobuf.

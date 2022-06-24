@@ -35,7 +35,7 @@ A custom block storage example to manage (store/index etc.) block (aka file/docu
 - [util/ctx.go](./util/ctx.go) : Contains context cheking helper function and error definitions
 - [peer](./peer/) : Contains p2p functions and definitions.
 - [errors.go](./errors.go) : Contains `blockstorage` error definitions and error checking functions
-- [grpc.go](./grpc.go) : Contains `blockstorage` GRPC endpoint definition and RPC function implementations
+- [grpc](./grpc/) : Contains `blockstorage` GRPC endpoint definition and RPC function implementations
 - [impl.go](./impl.go) : Contains `BlockStorage` interface implementation and helper functions
 - [options.go](./options.go) : Contains `BlockStorage` construction option definitions
 - [peer.go](./peer.go) : Contains p2p related protocol definition and functions

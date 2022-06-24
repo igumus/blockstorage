@@ -87,7 +87,7 @@ func (s *blockStorageSuite) TestBlockCreation() {
 			peer := mockpeer.NewMockBlockStoragePeer(s.ctrl)
 			peer.EXPECT().AnnounceBlock(gomock.Any(), gomock.Any()).AnyTimes().Return(true)
 
-			storage, err := newBlockStorage(ctx, WithLocalStore(store), WithPeer(peer))
+			storage, err := NewFakeBlockStorage(ctx, WithLocalStore(store), WithPeer(peer))
 			require.NoError(s.T(), err)
 
 			lookup := make(map[cid.Cid][]byte)

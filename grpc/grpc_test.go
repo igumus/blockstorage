@@ -40,7 +40,6 @@ func (s *grpcSuite) TestBlockCreationViaGrpc() {
 		blockstorage.EnableDebugMode(),
 		blockstorage.WithLocalStore(store),
 		blockstorage.WithPeer(peer),
-		blockstorage.EnableGrpcEndpoint(server),
 	)
 	require.NoError(s.T(), err)
 

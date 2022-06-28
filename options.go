@@ -5,7 +5,6 @@ import (
 
 	"github.com/igumus/blockstorage/peer"
 	"github.com/igumus/go-objectstore-lib"
-	"google.golang.org/grpc"
 )
 
 // ErrLocalObjectStoreNotDefined is return when local objectstore not specified while constructing `BlockStorage` service
@@ -22,11 +21,10 @@ type BlockStorageOption func(*blockstorageConfig)
 
 // Captures/Represents BlockStorage's configuration information.
 type blockstorageConfig struct {
-	lstore     objectstore.ObjectStore
-	grpcServer *grpc.Server
-	debugMode  bool
-	chunkSize  int
-	peer       peer.BlockStoragePeer
+	lstore    objectstore.ObjectStore
+	debugMode bool
+	chunkSize int
+	peer      peer.BlockStoragePeer
 }
 
 // validate - validates given `blockstorageConfig` instance
@@ -79,12 +77,5 @@ func WithPeer(p peer.BlockStoragePeer) BlockStorageOption {
 func EnableDebugMode() BlockStorageOption {
 	return func(bc *blockstorageConfig) {
 		bc.debugMode = true
-	}
-}
-
-// EnableGrpcEndpoint returns a BlockStorageOption that enables grpc endpoint of blockstorage
-func EnableGrpcEndpoint(s *grpc.Server) BlockStorageOption {
-	return func(bc *blockstorageConfig) {
-		bc.grpcServer = s
 	}
 }

@@ -44,7 +44,18 @@ A custom block storage example to manage (store/index etc.) block (aka file/docu
 `blockstorage` is still in progress.
 
 ## TODOs
-- [ ] add block indexing mechanism
-- [ ] add garbage collection trigger mechanism (to temporaryStore)
-- [ ] add long term storage trigger
-- [ ] ...
+- Prepare Step
+    - [x] Project Structure
+    - [x] Makefile tasks
+- Grpc Step
+    - [x] proto file
+    - [x] generate objects
+    - [x] add makefile task
+    - [x] implement service endpoint
+- Peer Step
+    - [x] protocol definition
+    - [x] store definition 
+- Future
+    - [ ] add block indexing mechanism
+    - [ ] add garbage collection trigger mechanism (to temporaryStore)
+    - [ ] add long term storage trigger
